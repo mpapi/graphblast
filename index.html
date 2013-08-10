@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Graphblast</title>
+<style>
+@import url(http://fonts.googleapis.com/css?family=Lato:300,400,700);
+
+body {
+  font-family: Lato, sans-serif;
+}
+
+svg {
+  margin: auto;
+  position: absolute;
+  top: 0; bottom: 0; left: 0; right: 0;
+}
+
+rect, text, path, line {
+  shape-rendering: crispEdges;
+}
+
+text.above {
+  fill: #000;
+}
+
+text.normal {
+  fill: #fff;
+}
+
+.bar {
+  fill: #ffa937;
+  font-size: 0.9em;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+}
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script>
+  var orient = {
+      barDir: 'x',
+      dataDir: 'y',
+      barWidth: 'width',
+      barLength: 'height',
+      axis: 'bottom'
+  };
+  var histogram = function (data, stats) {
+
+    if (data.length <= 1) {
+      // TODO: don't return, show something
+      return;
+    }
+
+    // TODO: dynamic with screen resize, underscore debounce?
+    var width = 800;
+    var height = 100;
+
+    var x = d3.scale.linear()
+      .domain([d3.min(data, function (d) { return d.x; }),
+               d3.max(data, function (d) { return d.x; }) + stats.Bucket])
+      .range([0, width - width / data.length]);
+
+    var y = d3.scale.linear()
+      .domain([0, d3.max(data, function (d) { return d.y; })])
+      .range([height, 0]);
+
+    var axis = d3.svg.axis().scale(x).orient(orient.axis);
+
+    var svg = d3.select('body').append('svg')
+      .attr(orient.barWidth, width + 50)
+      .attr(orient.barLength, height + 80)
+      .append('g')
+      .attr('transform', 'translate(25, 25)'); // translate amount based on axis width & svg width
+
+    var desc = svg.append('text')
+      .attr('text-anchor', 'middle')
+      .attr(orient.dataDir, height)
+      .attr('d' + orient.dataDir, 50)
+      .attr(orient.barDir, x.range()[1] / 2)
+      .text(stats.Label)
+      .attr('font-size', '1.1em')
+      .attr('font-weight', 'bold');
+
+    var bar = svg.selectAll('.bar').data(data)
+      .enter()
+      .append('g')
+      .attr('class', 'bar')
+      .attr('transform', function (d) {
+        return 'translate(' + x(d.x) + ',' + y(d.y) + ')';
+      });
+
+    var dx = (x(1) - x(0)) * stats.Bucket;
+    bar.append('rect')
+      .attr(orient.barDir, 1)
+      .attr(orient.barWidth, Math.max(1, dx - 1))
+      .attr(orient.barLength, function (d) { return height - y(d.y) });
+
+    bar.append('text')
+      .attr(orient.dataDir, function (d) {
+        return y(d.y) > height - 30 ? -20 : 6;
+      })
+      .attr('class', function (d) {
+        return y(d.y) > height - 30 ? 'above' : 'normal';
+      })
+      .attr('text-anchor', 'middle')
+      .attr('d' + orient.dataDir, '1em')
+      .attr(orient.barDir, dx * 0.5)
+      .text(function (d) { return d.y; });
+
+    svg.append("g")
+      .attr("class", "axis")
+      .attr("transform", "translate(0," + height + ")")
+      .call(axis);
+  };
+
+var pushHistogram = function (data) {
+  var hist = d3.map(data.Histogram).entries().map(function (i) {
+      return {x: parseFloat(i.key), y: i.value};
+  });
+  hist.sort(d3.ascending);
+  d3.select('svg').remove();
+  histogram(hist, data.Stats);
+};
+
+var events = new EventSource('/data');
+events.onmessage = function (e) {
+  var data = JSON.parse(e.data);
+  if (data.type && data.type === 'error') {
+    // TODO show the error
+    return;
+  }
+  // TODO show EOF, others
+  // TODO switch on "histogram" type
+  pushHistogram(data);
+};
+
+pushHistogram(JSON.parse({{.}}));
+</script>
+</body>
