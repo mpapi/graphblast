@@ -34,8 +34,10 @@ func Parse(str string) (Countable, error) {
 // Returns the bucket (as a string) of which the countable value should
 // increment the count, given the bucket size.
 func (d Countable) Bucket(size int) string {
-	f := int(math.Floor(float64(d)))
-	return strconv.Itoa(f / size * size)
+	if d < 0 {
+		d -= Countable(size)
+	}
+	return strconv.Itoa(int(d) / size * size)
 }
 
 // Stats are computed as countable values come in, and are sent out with
