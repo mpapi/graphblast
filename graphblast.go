@@ -130,6 +130,10 @@ func main() {
 		indexpage.Execute(w, string(msg))
 	})
 
+	http.HandleFunc("/script.js", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "script.js")
+	})
+
 	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
 		f, ok := w.(http.Flusher)
 		if !ok {
