@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+// Command-line flags.
+var listen = flag.String("listen", ":8080", "address:port to listen on")
 var label = flag.String("label", "", "graph label")
 var min = flag.Float64("min", math.Inf(-1), "minimum accepted value")
 var max = flag.Float64("max", math.Inf(1), "maximum accepted value")
@@ -176,5 +178,6 @@ func main() {
 			}
 		}
 	})
-	http.ListenAndServe(":8080", nil)
+
+	http.ListenAndServe(*listen, nil)
 }
