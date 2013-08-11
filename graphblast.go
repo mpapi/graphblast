@@ -50,7 +50,6 @@ type Stats struct {
 	Values   int       // the number of values encountered so far
 	Filtered int       // the number of values filtered out so far
 	Bucket   int       // the histogram bucket size
-	Label    string    // the optional graph label
 }
 
 // Adds a countable value to Stats, modifying the stats accordingly.
@@ -69,10 +68,11 @@ func (s *Stats) AddFiltered() {
 	s.Filtered += 1
 }
 
-// Wraps a histogram and stats, for JSON encoding.
+// Wraps a histogram, stats, and other display params for JSON encoding.
 type Message struct {
 	Stats     *Stats
 	Histogram *map[string]int
+	Label     string // the optional graph label
 	Wide      bool
 }
 
@@ -107,14 +107,14 @@ func main() {
 	flag.Parse()
 
 	hist := make(map[string]int)
-	stats := &Stats{0, 0, 0, 0, 0, *bucket, *label}
+	stats := &Stats{0, 0, 0, 0, 0, *bucket}
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
 	go Read(&hist, stats)
 
 	indexpage := template.Must(template.ParseFiles("index.html"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		msg, err := json.Marshal(Message{stats, &hist, *wide})
+		msg, err := json.Marshal(Message{stats, &hist, *label, *wide})
 		if err != nil {
 			fmt.Println("FAIL", err)
 			return
@@ -140,7 +140,7 @@ func main() {
 		w.Header().Set("Connection", "keep-alive")
 
 		writeHist := func() bool {
-			msg, err := json.Marshal(Message{stats, &hist, *wide})
+			msg, err := json.Marshal(Message{stats, &hist, *label, *wide})
 			if err != nil {
 				fmt.Println("FAIL", err)
 				fmt.Fprint(w, "data: {\"type\": \"error\"}\n\n")

@@ -141,7 +141,7 @@ text.inside {
     }
   };
 
-  var histogram = function (data, stats, wide) {
+  var histogram = function (data, stats, label, wide) {
 
     if (data.length <= 1) {
       // TODO: don't return, show something
@@ -175,7 +175,7 @@ text.inside {
     var desc = svg.append('g')
       .attr('transform', 'translate(' + orient.label.x + ',' + orient.label.y + ')')
       .append('text')
-      .text(stats.Label)
+      .text(label)
       .attr('class', 'label')
       .attr('text-anchor', 'middle')
       .attr('font-size', '1.1em')
@@ -214,7 +214,7 @@ var pushHistogram = function (data) {
   });
   hist.sort(d3.ascending);
   d3.select('svg').remove();
-  histogram(hist, data.Stats, data.Wide);
+  histogram(hist, data.Stats, data.Label, data.Wide);
 };
 
 var events = new EventSource('/data');

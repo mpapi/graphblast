@@ -5,26 +5,26 @@ import (
 )
 
 func Test_StatsAdd(t *testing.T) {
-	stats := Stats{0, 0, 0, 0, 0, 1, "test"}
+	stats := Stats{0, 0, 0, 0, 0, 1}
 	stats.Add(1)
 
-	expected := Stats{0, 1, 1, 1, 0, 1, "test"}
+	expected := Stats{0, 1, 1, 1, 0, 1}
 	if stats != expected {
 		t.Error("stats did not record count")
 	}
 
 	stats.Add(-0.5)
-	expected = Stats{-0.5, 1, 0.5, 2, 0, 1, "test"}
+	expected = Stats{-0.5, 1, 0.5, 2, 0, 1}
 	if stats != expected {
 		t.Error("stats did not record negative count")
 	}
 }
 
 func Test_StatsAddFiltered(t *testing.T) {
-	stats := Stats{0, 0, 0, 0, 0, 1, "test"}
+	stats := Stats{0, 0, 0, 0, 0, 1}
 	stats.AddFiltered()
 
-	expected := Stats{0, 0, 0, 0, 1, 1, "test"}
+	expected := Stats{0, 0, 0, 0, 1, 1}
 	if stats != expected {
 		t.Error("stats did not record filtered")
 	}
