@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"html/template"
-	"io"
 	"math"
 	"net/http"
 	"os"
@@ -23,9 +22,6 @@ var max = flag.Float64("max", math.Inf(1), "maximum accepted value")
 var bucket = flag.Int("bucket", 1, "histogram bucket size")
 var delay = flag.Int("delay", 5, "delay between updates, in seconds")
 var wide = flag.Bool("wide", false, "use wide orientation")
-
-// The type of a histogram: maps a string key to a count of occurrences.
-type Histogram map[string]int
 
 // The type of the items to parse from stdin and count in the histogram.
 type Countable float64
@@ -46,87 +42,87 @@ func (d Countable) Bucket(size int) string {
 	return strconv.Itoa(int(d) / size * size)
 }
 
-// Stats are computed as countable values come in, and are sent out with
-// histogram data in Messages.
-type Stats struct {
-	Min      Countable // the minimum value encountered so far
-	Max      Countable // the maximum value encountered so far
-	Total    Countable // the sum of values encountered so far
-	Values   int       // the number of values encountered so far
-	Filtered int       // the number of values filtered out so far
-	Errors   int       // the number of values skipped due to errors so far
-	Bucket   int       // the histogram bucket size
+// Collects and buckets values. Stats (min, max, total, etc.) are computed as
+// countable values come in.
+type Histogram struct {
+	Values map[string]Countable
+
+	Bucket int    // the histogram bucket size
+	Label  string // the label of the histogram
+	Wide   bool
+
+	Min Countable // the minimum value encountered so far
+	Max Countable // the maximum value encountered so far
+	Sum Countable // the sum of values encountered so far
+
+	Count    int // the number of values encountered so far
+	Filtered int // the number of values filtered out so far
+	Errors   int // the number of values skipped due to errors so far
 }
 
-// Adds a countable value to Stats, modifying the stats accordingly.
-func (s *Stats) Add(c Countable) {
-	if c < s.Min {
-		s.Min = c
+// Returns a new histogram. The bucket size is used to count values that
+// fall within a different size. The `label` and `wide` options control
+// the display of the rendered graph.
+func NewHistogram(bucket int, label string, wide bool) *Histogram {
+	return &Histogram{
+		Values: make(map[string]Countable, 1024),
+		Bucket: bucket,
+		Label:  label,
+		Wide:   wide,
+		Min:    Countable(math.Inf(1)),
+		Max:    Countable(math.Inf(-1))}
+}
+
+// Adds a countable value, modifying the stats and counts accordingly.
+func (hist *Histogram) Add(val Countable, err error) {
+	if err != nil {
+		hist.Errors += 1
+		return
+	} else if val < Countable(*min) || val > Countable(*max) {
+		hist.Filtered += 1
+		return
 	}
-	if c > s.Max {
-		s.Max = c
+
+	if val < hist.Min {
+		hist.Min = val
 	}
-	s.Total += c
-	s.Values += 1
+	if val > hist.Max {
+		hist.Max = val
+	}
+	hist.Sum += val
+	hist.Count += 1
+	hist.Values[val.Bucket(hist.Bucket)] += 1
 }
 
-// Records that a value was filtered.
-func (s *Stats) AddFiltered() {
-	s.Filtered += 1
-}
-
-// Records that a value failed to parse.
-func (s *Stats) AddError() {
-	s.Errors += 1
-}
-
-// Wraps a histogram, stats, and other display params for JSON encoding.
-type Message struct {
-	Stats     *Stats
-	Histogram *Histogram
-	Label     string // the optional graph label
-	Wide      bool
 }
 
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
-func Read(hist *Histogram, stats *Stats) {
+func Read(hist *Histogram) {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		line, err := reader.ReadString('\n')
-		if err == io.EOF {
-			// TODO signal done
-			break
-		} else if err != nil {
-			// TODO signal error
-			break
-		}
-
-		key, err := Parse(strings.TrimSpace(line))
 		if err != nil {
-			stats.AddError()
-			continue
-		} else if key < Countable(*min) || key > Countable(*max) {
-			stats.AddFiltered()
-			continue
+			break
 		}
-		stats.Add(key)
-		(*hist)[key.Bucket(*bucket)] += 1
+		hist.Add(Parse(strings.TrimSpace(line)))
+	}
+}
+
 	}
 }
 
 func main() {
 	flag.Parse()
 
-	hist := make(Histogram)
-	stats := &Stats{0, 0, 0, 0, 0, 0, *bucket}
+	hist := NewHistogram(*bucket, *label, *wide)
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
-	go Read(&hist, stats)
+	go Read(hist)
 
 	indexpage := template.Must(template.ParseFiles("index.html"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		msg, err := json.Marshal(Message{stats, &hist, *label, *wide})
+		msg, err := json.Marshal(&hist)
 		if err != nil {
 			fmt.Println("FAIL", err)
 			return
@@ -152,7 +148,7 @@ func main() {
 		w.Header().Set("Connection", "keep-alive")
 
 		writeHist := func() bool {
-			msg, err := json.Marshal(Message{stats, &hist, *label, *wide})
+			msg, err := json.Marshal(&hist)
 			if err != nil {
 				fmt.Println("FAIL", err)
 				fmt.Fprint(w, "data: {\"type\": \"error\"}\n\n")
@@ -163,24 +159,20 @@ func main() {
 			return true
 		}
 
-		if !writeHist() {
-			return
-		}
-
-		lastvalues := 0
+		lastcount := 0
 		for {
 			select {
 			case _ = <-cn.CloseNotify():
 				return
 
 			case _ = <-ticker.C:
-				if stats.Values <= lastvalues {
+				if hist.Count <= lastcount {
 					continue
 				}
-				lastvalues = stats.Values
+				lastcount = hist.Count
 
 				if !writeHist() {
-					break
+					return
 				}
 			}
 		}

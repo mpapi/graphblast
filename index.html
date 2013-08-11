@@ -141,7 +141,7 @@ text.inside {
     }
   };
 
-  var histogram = function (data, stats, label, wide) {
+  var histogram = function (data, opts) {
 
     if (data.length <= 1) {
       // TODO: don't return, show something
@@ -152,11 +152,11 @@ text.inside {
     var width = 900;
     var height = 500;
 
-    var orient = Orientation[wide ? 'wide' : 'tall'](data, 500, 500);
+    var orient = Orientation[opts.Wide ? 'wide' : 'tall'](data, 500, 500);
 
     var x = d3.scale.linear()
       .domain([d3.min(data, function (d) { return d.x; }),
-               d3.max(data, function (d) { return d.x; }) + stats.Bucket])
+               d3.max(data, function (d) { return d.x; }) + opts.Bucket])
       .range(orient.range.x);
 
     var y = d3.scale.linear()
@@ -175,7 +175,7 @@ text.inside {
     var desc = svg.append('g')
       .attr('transform', 'translate(' + orient.label.x + ',' + orient.label.y + ')')
       .append('text')
-      .text(label)
+      .text(opts.Label)
       .attr('class', 'label')
       .attr('text-anchor', 'middle')
       .attr('font-size', '1.1em')
@@ -188,7 +188,7 @@ text.inside {
       .attr('class', 'bar')
       .attr('transform', orient.translate(x, y ));
 
-    var dx = (x(1) - x(0)) * stats.Bucket;
+    var dx = (x(1) - x(0)) * opts.Bucket;
     bar.append('rect')
       .attr('x', orient.bar.x(x, y, dx))
       .attr('y', orient.bar.y(x, y, dx))
@@ -209,12 +209,12 @@ text.inside {
   };
 
 var pushHistogram = function (data) {
-  var hist = d3.map(data.Histogram).entries().map(function (i) {
+  var hist = d3.map(data.Values).entries().map(function (i) {
       return {x: parseFloat(i.key), y: i.value};
   });
   hist.sort(d3.ascending);
   d3.select('svg').remove();
-  histogram(hist, data.Stats, data.Label, data.Wide);
+  histogram(hist, data);
 };
 
 var events = new EventSource('/data');

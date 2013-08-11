@@ -1,42 +1,52 @@
 package main
 
 import (
+	"errors"
 	"testing"
 )
 
-func Test_StatsAdd(t *testing.T) {
-	stats := Stats{0, 0, 0, 0, 0, 0, 1}
-	stats.Add(1)
+func Test_HistogramAdd(t *testing.T) {
+	hist := NewHistogram(1, "", false)
+	hist.Add(1, nil)
 
-	expected := Stats{0, 1, 1, 1, 0, 0, 1}
-	if stats != expected {
-		t.Error("stats did not record count")
+	if len(hist.Values) != 1 {
+		t.Error("histogram did not record count")
+	}
+	if hist.Values["1"] != 1 {
+		t.Error("histogram recorded wrong count")
+	}
+	if hist.Min != 1 || hist.Max != 1 || hist.Sum != 1 {
+		t.Error("histogram recorded wrong value stat")
+	}
+	if hist.Count != 1 || hist.Filtered != 0 || hist.Errors != 0 {
+		t.Error("histogram recorded wrong count stat")
 	}
 
-	stats.Add(-0.5)
-	expected = Stats{-0.5, 1, 0.5, 2, 0, 0, 1}
-	if stats != expected {
-		t.Error("stats did not record negative count")
+	hist.Add(-0.5, nil)
+
+	if len(hist.Values) != 2 {
+		t.Error("histogram did not record count")
+	}
+	if hist.Values["-1"] != 1 {
+		t.Error("histogram recorded wrong count")
+	}
+	if hist.Min != -0.5 || hist.Max != 1 || hist.Sum != 0.5 {
+		t.Error("histogram recorded wrong value stat")
+	}
+	if hist.Count != 2 || hist.Filtered != 0 || hist.Errors != 0 {
+		t.Error("histogram recorded wrong count stat")
 	}
 }
 
-func Test_StatsAddFiltered(t *testing.T) {
-	stats := Stats{0, 0, 0, 0, 0, 0, 1}
-	stats.AddFiltered()
+func Test_HistogramAddError(t *testing.T) {
+	hist := NewHistogram(1, "", false)
+	hist.Add(1, errors.New("fail"))
 
-	expected := Stats{0, 0, 0, 0, 1, 0, 1}
-	if stats != expected {
-		t.Error("stats did not record filtered")
+	if len(hist.Values) != 0 {
+		t.Error("histogram recorded count for error")
 	}
-}
-
-func Test_StatsAddError(t *testing.T) {
-	stats := Stats{0, 0, 0, 0, 0, 0, 1}
-	stats.AddError()
-
-	expected := Stats{0, 0, 0, 0, 0, 1, 1}
-	if stats != expected {
-		t.Error("stats did not record error")
+	if hist.Count != 0 || hist.Filtered != 0 || hist.Errors != 1 {
+		t.Error("histogram recorded wrong count stat")
 	}
 }
 
