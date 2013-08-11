@@ -18,11 +18,11 @@ rect, text, path, line {
   shape-rendering: crispEdges;
 }
 
-text.above {
+text.outside {
   fill: #000;
 }
 
-text.normal {
+text.inside {
   fill: #fff;
 }
 
@@ -39,14 +39,109 @@ text.normal {
 <body>
 <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
 <script>
-  var orient = {
-      barDir: 'x',
-      dataDir: 'y',
-      barWidth: 'width',
-      barLength: 'height',
-      axis: 'bottom'
+  // TODO: it might be better to rotate the whole thing, and then individually
+  // rotate each piece of text back
+  var Orientation = {
+    wide: function (data, axisLength, barLength) {
+      return {
+        axis: {
+          orient: 'left',
+          transform: ''
+        },
+        range: {
+          x: [0, axisLength - axisLength / data.length],
+          y: [0, barLength]
+        },
+        svg: {width: barLength + 105, height: axisLength + 65},
+        label: {
+          x: -35,
+          y: (axisLength - axisLength / data.length) * 0.5,
+          rotate: -90
+        },
+        translate: function (x, y) {
+          return function (d) {
+            return ['translate(', 0, ',', x(d.x), ')'].join('');
+          };
+        },
+        bar: {
+          x: function (x, y, dx) { return 0; },
+          y: function (x, y, dx) { return 1; },
+          height: function (x, y, dx) { return Math.max(1, dx - 1); },
+          width: function (x, y, dx) {
+            return function (d) { return y(d.y); };
+          }
+        },
+        text: {
+          x: function (x, y, dx) {
+            return function (d) {
+              var len = this.getComputedTextLength();
+              return y(d.y) > len + 30 ? y(d.y) - 6 - len : y(d.y) + 6;
+            };
+          },
+          y: function (x, y, dx) {
+            return dx * 0.5;
+          },
+          _class: function (x, y, dx) {
+            return function (d) {
+              var len = this.getComputedTextLength();
+              return y(d.y) > len + 30 ? 'inside' : 'outside';
+            };
+          },
+          center: 'dominant-baseline',
+        }
+      };
+    },
+
+    tall: function (data, axisLength, barLength) {
+      return {
+        axis: {
+          orient: 'bottom',
+          transform: 'translate(0,' + barLength + ')'
+        },
+        range: {
+          x: [0, axisLength - axisLength / data.length],
+          y: [barLength, 0]
+        },
+        svg: {width: axisLength + 65, height: barLength + 105},
+        label: {
+          x: (axisLength - axisLength / data.length) * 0.5,
+          y: barLength + 50,
+          rotate: 0
+        },
+        translate: function (x, y) {
+          return function (d) {
+            return ['translate(', x(d.x), ',', y(d.y), ')'].join('');
+          };
+        },
+        bar: {
+          x: function (x, y, dx) { return 1; },
+          y: function (x, y, dx) { return 0; },
+          height: function (x, y, dx) {
+            return function (d) { return barLength - y(d.y); };
+          },
+          width: function (x, y, dx) { return Math.max(1, dx - 1); }
+        },
+        text: {
+          x: function (x, y, dx) {
+            return dx * 0.5;
+          },
+          y: function (x, y, dx) {
+            return function (d) {
+              return y(d.y) > barLength - 30 ? -6 : 18;
+            };
+          },
+          _class: function (x, y, dx) {
+            return function (d) {
+              return y(d.y) > barLength - 30 ? 'outside' : 'inside';
+            };
+          },
+          center: 'text-anchor',
+        }
+      };
+    }
   };
-  var histogram = function (data, stats) {
+
+  var histogram = function (data, stats, wide) {
 
     if (data.length <= 1) {
       // TODO: don't return, show something
@@ -54,64 +149,62 @@ text.normal {
     }
 
     // TODO: dynamic with screen resize, underscore debounce?
-    var width = 800;
-    var height = 100;
+    var width = 900;
+    var height = 500;
+
+    var orient = Orientation[wide ? 'wide' : 'tall'](data, 500, 500);
 
     var x = d3.scale.linear()
       .domain([d3.min(data, function (d) { return d.x; }),
                d3.max(data, function (d) { return d.x; }) + stats.Bucket])
-      .range([0, width - width / data.length]);
+      .range(orient.range.x);
 
     var y = d3.scale.linear()
       .domain([0, d3.max(data, function (d) { return d.y; })])
-      .range([height, 0]);
+      .range(orient.range.y);
 
-    var axis = d3.svg.axis().scale(x).orient(orient.axis);
+    var axis = d3.svg.axis().scale(x).orient(orient.axis.orient);
 
     var svg = d3.select('body').append('svg')
-      .attr(orient.barWidth, width + 50)
-      .attr(orient.barLength, height + 80)
+      .attr('width', orient.svg.width)
+      .attr('height', orient.svg.height)
       .append('g')
-      .attr('transform', 'translate(25, 25)'); // translate amount based on axis width & svg width
+      .attr('transform', 'translate(50, 50)');
+      // TODO translate amount based on axis width & svg width
 
-    var desc = svg.append('text')
-      .attr('text-anchor', 'middle')
-      .attr(orient.dataDir, height)
-      .attr('d' + orient.dataDir, 50)
-      .attr(orient.barDir, x.range()[1] / 2)
+    var desc = svg.append('g')
+      .attr('transform', 'translate(' + orient.label.x + ',' + orient.label.y + ')')
+      .append('text')
       .text(stats.Label)
+      .attr('class', 'label')
+      .attr('text-anchor', 'middle')
       .attr('font-size', '1.1em')
-      .attr('font-weight', 'bold');
+      .attr('font-weight', 'bold')
+      .attr('transform', 'rotate(' + orient.label.rotate + ')');
 
     var bar = svg.selectAll('.bar').data(data)
       .enter()
       .append('g')
       .attr('class', 'bar')
-      .attr('transform', function (d) {
-        return 'translate(' + x(d.x) + ',' + y(d.y) + ')';
-      });
+      .attr('transform', orient.translate(x, y ));
 
     var dx = (x(1) - x(0)) * stats.Bucket;
     bar.append('rect')
-      .attr(orient.barDir, 1)
-      .attr(orient.barWidth, Math.max(1, dx - 1))
-      .attr(orient.barLength, function (d) { return height - y(d.y) });
+      .attr('x', orient.bar.x(x, y, dx))
+      .attr('y', orient.bar.y(x, y, dx))
+      .attr('height', orient.bar.height(x, y, dx))
+      .attr('width', orient.bar.width(x, y, dx))
 
     bar.append('text')
-      .attr(orient.dataDir, function (d) {
-        return y(d.y) > height - 30 ? -20 : 6;
-      })
-      .attr('class', function (d) {
-        return y(d.y) > height - 30 ? 'above' : 'normal';
-      })
-      .attr('text-anchor', 'middle')
-      .attr('d' + orient.dataDir, '1em')
-      .attr(orient.barDir, dx * 0.5)
-      .text(function (d) { return d.y; });
+      .text(function (d) { return d.y; })
+      .attr('x', orient.text.x(x, y, dx))
+      .attr('y', orient.text.y(x, y, dx))
+      .attr('class', orient.text._class(x, y, dx))
+      .attr(orient.text.center, 'middle');
 
-    svg.append("g")
-      .attr("class", "axis")
-      .attr("transform", "translate(0," + height + ")")
+    svg.append('g')
+      .attr('class', 'axis')
+      .attr('transform', orient.axis.transform)
       .call(axis);
   };
 
@@ -121,7 +214,7 @@ var pushHistogram = function (data) {
   });
   hist.sort(d3.ascending);
   d3.select('svg').remove();
-  histogram(hist, data.Stats);
+  histogram(hist, data.Stats, data.Wide);
 };
 
 var events = new EventSource('/data');

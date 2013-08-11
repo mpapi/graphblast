@@ -20,6 +20,7 @@ var min = flag.Float64("min", math.Inf(-1), "minimum accepted value")
 var max = flag.Float64("max", math.Inf(1), "maximum accepted value")
 var bucket = flag.Int("bucket", 1, "histogram bucket size")
 var delay = flag.Int("delay", 5, "delay between updates, in seconds")
+var wide = flag.Bool("wide", false, "use wide orientation")
 
 // The type of the items to parse from stdin and count in the histogram.
 type Countable float64
@@ -72,6 +73,7 @@ func (s *Stats) AddFiltered() {
 type Message struct {
 	Stats     *Stats
 	Histogram *map[string]int
+	Wide      bool
 }
 
 // Read and parse countable values from stdin, add them to a histogram and
@@ -112,7 +114,7 @@ func main() {
 
 	indexpage := template.Must(template.ParseFiles("index.html"))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		msg, err := json.Marshal(Message{stats, &hist})
+		msg, err := json.Marshal(Message{stats, &hist, *wide})
 		if err != nil {
 			fmt.Println("FAIL", err)
 			return
@@ -138,7 +140,7 @@ func main() {
 		w.Header().Set("Connection", "keep-alive")
 
 		writeHist := func() bool {
-			msg, err := json.Marshal(Message{stats, &hist})
+			msg, err := json.Marshal(Message{stats, &hist, *wide})
 			if err != nil {
 				fmt.Println("FAIL", err)
 				fmt.Fprint(w, "data: {\"type\": \"error\"}\n\n")
