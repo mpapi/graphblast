@@ -54,6 +54,7 @@ type Stats struct {
 	Total    Countable // the sum of values encountered so far
 	Values   int       // the number of values encountered so far
 	Filtered int       // the number of values filtered out so far
+	Errors   int       // the number of values skipped due to errors so far
 	Bucket   int       // the histogram bucket size
 }
 
@@ -69,8 +70,14 @@ func (s *Stats) Add(c Countable) {
 	s.Values += 1
 }
 
+// Records that a value was filtered.
 func (s *Stats) AddFiltered() {
 	s.Filtered += 1
+}
+
+// Records that a value failed to parse.
+func (s *Stats) AddError() {
+	s.Errors += 1
 }
 
 // Wraps a histogram, stats, and other display params for JSON encoding.
@@ -97,7 +104,7 @@ func Read(hist *Histogram, stats *Stats) {
 
 		key, err := Parse(strings.TrimSpace(line))
 		if err != nil {
-			// TODO signal failed
+			stats.AddError()
 			continue
 		} else if key < Countable(*min) || key > Countable(*max) {
 			stats.AddFiltered()
@@ -112,7 +119,7 @@ func main() {
 	flag.Parse()
 
 	hist := make(Histogram)
-	stats := &Stats{0, 0, 0, 0, 0, *bucket}
+	stats := &Stats{0, 0, 0, 0, 0, 0, *bucket}
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
 	go Read(&hist, stats)
