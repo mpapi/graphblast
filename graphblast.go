@@ -123,7 +123,13 @@ func main() {
 	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
 		f, ok := w.(http.Flusher)
 		if !ok {
-			http.Error(w, "SSE unsupported", http.StatusInternalServerError)
+			http.Error(w, "no flusher", http.StatusInternalServerError)
+			return
+		}
+
+		cn, ok := w.(http.CloseNotifier)
+		if !ok {
+			http.Error(w, "no close notifier", http.StatusInternalServerError)
 			return
 		}
 
@@ -150,6 +156,9 @@ func main() {
 		lastvalues := 0
 		for {
 			select {
+			case _ = <-cn.CloseNotify():
+				return
+
 			case _ = <-ticker.C:
 				if stats.Values <= lastvalues {
 					continue
