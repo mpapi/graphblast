@@ -22,6 +22,9 @@ var bucket = flag.Int("bucket", 1, "histogram bucket size")
 var delay = flag.Int("delay", 5, "delay between updates, in seconds")
 var wide = flag.Bool("wide", false, "use wide orientation")
 
+// The type of a histogram: maps a string key to a count of occurrences.
+type Histogram map[string]int
+
 // The type of the items to parse from stdin and count in the histogram.
 type Countable float64
 
@@ -71,14 +74,14 @@ func (s *Stats) AddFiltered() {
 // Wraps a histogram, stats, and other display params for JSON encoding.
 type Message struct {
 	Stats     *Stats
-	Histogram *map[string]int
+	Histogram *Histogram
 	Label     string // the optional graph label
 	Wide      bool
 }
 
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
-func Read(hist *map[string]int, stats *Stats) {
+func Read(hist *Histogram, stats *Stats) {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		line, err := reader.ReadString('\n')
@@ -106,7 +109,7 @@ func Read(hist *map[string]int, stats *Stats) {
 func main() {
 	flag.Parse()
 
-	hist := make(map[string]int)
+	hist := make(Histogram)
 	stats := &Stats{0, 0, 0, 0, 0, *bucket}
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
