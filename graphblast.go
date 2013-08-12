@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ import (
 
 // Command-line flags.
 var listen = flag.String("listen", ":8080", "address:port to listen on")
+var verbose = flag.Bool("verbose", false, "be more verbose")
 var label = flag.String("label", "", "graph label")
 var min = flag.Float64("min", math.Inf(-1), "minimum accepted value")
 var max = flag.Float64("max", math.Inf(1), "maximum accepted value")
@@ -132,15 +134,24 @@ func (ew *ErrorWatchers) Broadcast(errors chan error) {
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
 func Read(hist *Histogram, errors chan error) {
+	logger("starting to read data")
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
+			logger("finished reading data due to %v", err)
 			errors <- err
 			return
 		}
 		hist.Add(Parse(strings.TrimSpace(line)))
 	}
+}
+
+func logger(format string, v ...interface{}) {
+	if !*verbose {
+		return
+	}
+	log.Printf(format+"\n", v...)
 }
 
 // Sets up a ResponseWriter for use as an EventSource.
@@ -170,7 +181,16 @@ func sendJSON(writer io.Writer, obj interface{}) {
 	fmt.Fprintf(writer, "data: %s\n\n", msg)
 }
 
+func logRequest(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		logger("(%v) starting %v %v", r.RemoteAddr, r.Method, r.URL)
+		defer logger("(%v) finished %v %v", r.RemoteAddr, r.Method, r.URL)
+		handler(w, r)
+	}
+}
+
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	flag.Parse()
 
 	hist := NewHistogram(*bucket, *label, *wide)
@@ -185,22 +205,21 @@ func main() {
 
 	indexfile := bundle.ReadFile("index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", logRequest(func(w http.ResponseWriter, r *http.Request) {
 		msg, err := json.Marshal(&hist)
 		if err != nil {
 			fmt.Println("FAIL", err)
 			return
 		}
 		indexpage.Execute(w, string(msg))
-	})
+	}))
 
 	scriptfile := bytes.NewReader(bundle.ReadFile("script.js"))
-	http.HandleFunc("/script.js", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/script.js", logRequest(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "script.js", time.Now(), scriptfile)
-	})
+	}))
 
-	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
-
+	http.HandleFunc("/data", logRequest(func(w http.ResponseWriter, r *http.Request) {
 		// Register a channel for passing errors to the HTTP client.
 		errors := watchers.Watch(r.RemoteAddr)
 		defer watchers.Unwatch(r.RemoteAddr)
@@ -232,7 +251,8 @@ func main() {
 				flusher.Flush()
 			}
 		}
-	})
+	}))
 
+	logger("listening on %v", *listen)
 	http.ListenAndServe(*listen, nil)
 }
