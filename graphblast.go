@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bundle"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -181,7 +183,8 @@ func main() {
 
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
-	indexpage := template.Must(template.ParseFiles("index.html"))
+	indexfile := bundle.ReadFile("index.html")
+	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		msg, err := json.Marshal(&hist)
 		if err != nil {
@@ -191,8 +194,9 @@ func main() {
 		indexpage.Execute(w, string(msg))
 	})
 
+	scriptfile := bytes.NewReader(bundle.ReadFile("script.js"))
 	http.HandleFunc("/script.js", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "script.js")
+		http.ServeContent(w, r, "script.js", time.Now(), scriptfile)
 	})
 
 	http.HandleFunc("/data", func(w http.ResponseWriter, r *http.Request) {
