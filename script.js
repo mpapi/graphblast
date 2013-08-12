@@ -115,6 +115,10 @@
       return;
     }
 
+    if (opts.Label) {
+      document.title = opts.Label;
+    }
+
     // TODO: dynamic with screen resize, underscore debounce?
     var orient = Orientation[opts.Wide ? 'wide' : 'tall'](data, 500, 500);
 
