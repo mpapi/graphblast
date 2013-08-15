@@ -115,6 +115,50 @@
     return Orientation[orientation](data, axisLength, barLength);
   };
 
+  var parseColors = function (colors) {
+    var parts = colors ? colors.split(',') : [];
+    return {
+      bg: parts[0],
+      fg: parts[1],
+      bar: parts[2]
+    };
+  };
+
+  var CSS = {
+    colors: function (colors) {
+      var styles = [];
+      if (colors.bg && colors.fg) {
+        styles.push('body { background-color: ' + colors.bg + '}');
+        styles.push('.axis path, .axis line { stroke: ' + colors.fg + '}');
+        styles.push('text, text.outside { fill: ' + colors.fg + '}');
+        styles.push('text.inside { fill: ' + colors.bg + '}');
+      }
+      if (colors.bar) {
+        styles.push('.bar { fill: ' + colors.bar + '}');
+      }
+      return styles.join('\n');
+    },
+    overrides: function () {
+      var overrides = d3.select('style.overrides');
+      if (overrides.empty()) {
+        overrides = d3.select('head').append('style')
+          .classed('overrides', true);
+      }
+      return overrides;
+    }
+  };
+
+  var applyStyle = function (opts) {
+    if (opts.Label) {
+      document.title = opts.Label;
+    }
+    var styles = [CSS.colors(parseColors(opts.Colors))];
+    if (opts.FontSize) {
+      styles.push('body { font-size: ' + opts.FontSize + '}');
+    }
+    CSS.overrides().text(styles.join('\n'));
+  };
+
   var histogram = function (data, opts) {
 
     if (data.length <= 1) {
@@ -122,9 +166,7 @@
       return;
     }
 
-    if (opts.Label) {
-      document.title = opts.Label;
-    }
+    applyStyle(opts);
 
     // TODO: dynamic with screen resize, underscore debounce?
     var orient = orientation(opts, data);

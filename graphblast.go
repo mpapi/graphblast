@@ -30,6 +30,8 @@ var delay = flag.Int("delay", 5, "delay between updates, in seconds")
 var wide = flag.Bool("wide", false, "use wide orientation")
 var width = flag.Int("width", 500, "width of the graph, in pixels")
 var height = flag.Int("height", 500, "height of the graph, in pixels")
+var colors = flag.String("colors", "", "comma-separated: bg, fg, bar color")
+var fontSize = flag.String("font-size", "", "font size (CSS)")
 
 // The type of the items to parse from stdin and count in the histogram.
 type Countable float64
@@ -60,6 +62,9 @@ type Histogram struct {
 	Wide   bool   // whether to use the alternate wide graph orientation
 	Width  int    // the maximum graph width in pixels
 	Height int    // the maximum graph height in pixels
+
+	Colors   string // the colors to use when displaying the graph
+	FontSize string // the CSS font size to use when displaying the graph
 
 	Min Countable // the minimum value encountered so far
 	Max Countable // the maximum value encountered so far
@@ -200,6 +205,8 @@ func main() {
 	hist := NewHistogram(*bucket, *label, *wide)
 	hist.Width = *width
 	hist.Height = *height
+	hist.Colors = *colors
+	hist.FontSize = *fontSize
 
 	readerrors := make(chan error)
 	watchers := make(ErrorWatchers, 0)
