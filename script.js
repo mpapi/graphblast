@@ -108,6 +108,13 @@
     }
   };
 
+  var orientation = function (opts, data) {
+    var axisLength = opts.Wide ? opts.Height : opts.Width;
+    var barLength = opts.Wide ? opts.Width : opts.Height;
+    var orientation = opts.Wide ? 'wide' : 'tall';
+    return Orientation[orientation](data, axisLength, barLength);
+  };
+
   var histogram = function (data, opts) {
 
     if (data.length <= 1) {
@@ -120,7 +127,7 @@
     }
 
     // TODO: dynamic with screen resize, underscore debounce?
-    var orient = Orientation[opts.Wide ? 'wide' : 'tall'](data, 500, 500);
+    var orient = orientation(opts, data);
 
     var x = d3.scale.linear()
       .domain([d3.min(data, function (d) { return d.x; }),

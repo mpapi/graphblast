@@ -28,6 +28,8 @@ var max = flag.Float64("max", math.Inf(1), "maximum accepted value")
 var bucket = flag.Int("bucket", 1, "histogram bucket size")
 var delay = flag.Int("delay", 5, "delay between updates, in seconds")
 var wide = flag.Bool("wide", false, "use wide orientation")
+var width = flag.Int("width", 500, "width of the graph, in pixels")
+var height = flag.Int("height", 500, "height of the graph, in pixels")
 
 // The type of the items to parse from stdin and count in the histogram.
 type Countable float64
@@ -55,7 +57,9 @@ type Histogram struct {
 
 	Bucket int    // the histogram bucket size
 	Label  string // the label of the histogram
-	Wide   bool
+	Wide   bool   // whether to use the alternate wide graph orientation
+	Width  int    // the maximum graph width in pixels
+	Height int    // the maximum graph height in pixels
 
 	Min Countable // the minimum value encountered so far
 	Max Countable // the maximum value encountered so far
@@ -194,6 +198,8 @@ func main() {
 	flag.Parse()
 
 	hist := NewHistogram(*bucket, *label, *wide)
+	hist.Width = *width
+	hist.Height = *height
 
 	readerrors := make(chan error)
 	watchers := make(ErrorWatchers, 0)
