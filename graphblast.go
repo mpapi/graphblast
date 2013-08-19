@@ -88,6 +88,15 @@ func NewHistogram(bucket int, label string, wide bool) *Histogram {
 		Max:    Countable(math.Inf(-1))}
 }
 
+// Returns whether the graph has changed since the `indicator` value was
+// returned, and a new indicator if it has..
+func (hist *Histogram) Changed(indicator int) (bool, int) {
+	if hist.Count <= indicator {
+		return false, indicator
+	}
+	return true, hist.Count
+}
+
 // Adds a countable value, modifying the stats and counts accordingly.
 func (hist *Histogram) Add(val Countable, err error) {
 	if err != nil {
@@ -107,6 +116,22 @@ func (hist *Histogram) Add(val Countable, err error) {
 	hist.Sum += val
 	hist.Count += 1
 	hist.Values[val.Bucket(hist.Bucket)] += 1
+}
+
+// Read and parse countable values from stdin, add them to a histogram and
+// update stats.
+func (hist *Histogram) Read(errors chan error) {
+	logger("starting to read data")
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			logger("finished reading data due to %v", err)
+			errors <- err
+			return
+		}
+		hist.Add(Parse(strings.TrimSpace(line)))
+	}
 }
 
 // EventSource requests that want to listen for errors (including EOF) can
@@ -137,22 +162,6 @@ func (ew *ErrorWatchers) Broadcast(errors chan error) {
 		for _, errChan := range *ew {
 			errChan <- err
 		}
-	}
-}
-
-// Read and parse countable values from stdin, add them to a histogram and
-// update stats.
-func Read(hist *Histogram, errors chan error) {
-	logger("starting to read data")
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			logger("finished reading data due to %v", err)
-			errors <- err
-			return
-		}
-		hist.Add(Parse(strings.TrimSpace(line)))
 	}
 }
 
@@ -212,7 +221,7 @@ func main() {
 	watchers := make(ErrorWatchers, 0)
 	go watchers.Broadcast(readerrors)
 
-	go Read(hist, readerrors)
+	go hist.Read(readerrors)
 
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
@@ -244,7 +253,10 @@ func main() {
 			return
 		}
 
-		lastcount := 0
+		sendJSON(w, hist)
+		flusher.Flush()
+
+		changed, lastCount := false, 0
 		for {
 			select {
 			case _ = <-cn.CloseNotify():
@@ -256,10 +268,10 @@ func main() {
 				return
 
 			case _ = <-ticker.C:
-				if hist.Count <= lastcount {
+				changed, lastCount = hist.Changed(lastCount)
+				if !changed {
 					continue
 				}
-				lastcount = hist.Count
 				sendJSON(w, hist)
 				flusher.Flush()
 			}

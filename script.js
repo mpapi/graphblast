@@ -232,8 +232,10 @@
     var data = JSON.parse(e.data);
     if (data.type && data.type === 'error') {
       // TODO show the error
+      console.error(data);
       return;
     }
+    console.debug(data);
     // TODO show EOF, others
     // TODO switch on "histogram" type
     pushHistogram(data);
