@@ -227,6 +227,73 @@
     histogram(hist, data);
   };
 
+  var timeSeries = function (data, opts) {
+    if (data.length <= 1) {
+      // TODO: don't return, show something
+      return;
+    }
+
+    //applyStyle(opts);
+    var width = opts.Width; // + 65;
+    var height = opts.Height; // + 200;
+
+    var x = d3.time.scale()
+      .domain(d3.extent(data, function (d) { return d.x; }))
+      .range([0, width]);
+
+    var y = d3.scale.linear()
+      .domain(d3.extent(data, function (d) { return d.y; }))
+      .range([height, 0]);
+
+    var xAxis = d3.svg.axis().scale(x).orient('bottom');
+    var yAxis = d3.svg.axis().scale(y).orient('left');
+    var line = d3.svg.line()
+      .x(function (d) { return x(d.x); })
+      .y(function (d) { return y(d.y); });
+
+    var svg = d3.select('body').append('svg')
+      .attr('width', width + 65)
+      .attr('height', height + 105)
+      .append('g')
+      .attr('transform', _translate(50, 50));
+      // TODO translate amount based on axis width & svg width
+
+    svg.append('g')
+      .attr('transform', _translate(width * 0.5, height + 50))
+      .append('text')
+      .text(opts.Label)
+      .attr('class', 'label')
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '1.1em')
+      .attr('font-weight', 'bold');
+      //.attr('transform', 'rotate(' + orient.label.rotate + ')');
+
+
+    svg.append('path')
+      .datum(data)
+      .attr('class', 'line')
+      .attr('d', line);
+
+    svg.append('g')
+      .attr('class', 'y axis')
+      .call(yAxis);
+
+    svg.append('g')
+      .attr('class', 'x axis')
+      .attr('transform', _translate(0, y(Math.max(0, y.domain()[0]))))
+      .call(xAxis);
+  };
+
+  var pushTimeSeries = window.pushTimeSeries = function (data) {
+    var ts = d3.map(data.Values).entries().sort(function (a, b) {
+      return d3.ascending(a.key, b.key);
+    }).map(function (i) {
+      return {x: new Date(i.key), y: i.value};
+    });
+    d3.select('svg').remove();
+    timeSeries(ts, data);
+  };
+
   var events = new EventSource('/data');
   events.onmessage = function (e) {
     var data = JSON.parse(e.data);
@@ -238,6 +305,10 @@
     console.debug(data);
     // TODO show EOF, others
     // TODO switch on "histogram" type
-    pushHistogram(data);
+    if (data.Layout === 'histogram') {
+      pushHistogram(data);
+    } else if (data.Layout == 'time-series') {
+      pushTimeSeries(data);
+    }
   };
 })();

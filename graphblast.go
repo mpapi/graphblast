@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bundle"
 	"bytes"
+	"container/list"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -52,11 +53,109 @@ func (d Countable) Bucket(size int) string {
 	return strconv.Itoa(int(d) / size * size)
 }
 
+func doRead(input io.Reader, errors chan error, process func(string)) {
+	logger("starting to read data")
+	reader := bufio.NewReader(input)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			logger("finished reading data due to %v", err)
+			errors <- err
+			return
+		}
+		process(line)
+	}
+}
+
+type Graph interface {
+	Changed() (bool, int)
+}
+
+// TODO ScatterPlot
+
+type TimeSeries struct {
+	Values map[string]Countable
+	times  *list.List
+
+	Layout string // the layout to use (interpreted by JS)
+	Label  string // the label of the histogram
+	Width  int    // the maximum graph width in pixels
+	Height int    // the maximum graph height in pixels
+	Window int    // the number of points to retain
+
+	Colors   string // the colors to use when displaying the graph
+	FontSize string // the CSS font size to use when displaying the graph
+
+	Min Countable // the minimum value encountered so far
+	Max Countable // the maximum value encountered so far
+
+	Count    int // the number of values encountered so far
+	Filtered int // the number of values filtered out so far
+	Errors   int // the number of values skipped due to errors so far
+}
+
+func NewTimeSeries(window int, label string) *TimeSeries {
+	return &TimeSeries{
+		times:  list.New(),
+		Layout: "time-series",
+		Values: make(map[string]Countable, 1024),
+		Window: window,
+		Label:  label,
+		Min:    Countable(math.Inf(1)),
+		Max:    Countable(math.Inf(-1))}
+}
+
+func (ts *TimeSeries) Changed(indicator int) (bool, int) {
+	if ts.Count <= indicator {
+		return false, indicator
+	}
+	return true, ts.Count
+}
+
+
+// TODO interface Collection with methods for updating min/max/etc.
+
+func (ts *TimeSeries) Add(when time.Time, val Countable, err error) {
+	if err != nil {
+		ts.Errors += 1
+		return
+	} else if val < Countable(*min) || val > Countable(*max) {
+		ts.Filtered += 1
+		return
+	}
+
+	if val < ts.Min {
+		ts.Min = val
+	}
+	if val > ts.Max {
+		ts.Max = val
+	}
+
+	ts.Count += 1
+	key := when.Format(time.RFC3339Nano)
+	ts.times.PushBack(key)
+	ts.Values[key] = val
+	if ts.times.Len() > ts.Window {
+		drop := ts.times.Front()
+		ts.times.Remove(drop)
+		dropped := drop.Value.(string)
+		delete(ts.Values, dropped)
+	}
+}
+
+func (ts *TimeSeries) Read(errors chan error) {
+	doRead(os.Stdin, errors, func(line string) {
+		parsed, err := Parse(strings.TrimSpace(line))
+		ts.Add(time.Now(), parsed, err)
+	})
+}
+
 // Collects and buckets values. Stats (min, max, total, etc.) are computed as
 // countable values come in.
 type Histogram struct {
 	Values map[string]Countable
 
+	Layout string // the layout to use (interpreted by JS)
 	Bucket int    // the histogram bucket size
 	Label  string // the label of the histogram
 	Wide   bool   // whether to use the alternate wide graph orientation
@@ -80,6 +179,7 @@ type Histogram struct {
 // the display of the rendered graph.
 func NewHistogram(bucket int, label string, wide bool) *Histogram {
 	return &Histogram{
+		Layout: "histogram",
 		Values: make(map[string]Countable, 1024),
 		Bucket: bucket,
 		Label:  label,
@@ -211,24 +311,32 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	flag.Parse()
 
+	// TODO have graph return a FlagSet
+	/*
 	hist := NewHistogram(*bucket, *label, *wide)
 	hist.Width = *width
 	hist.Height = *height
 	hist.Colors = *colors
 	hist.FontSize = *fontSize
+	*/
+	graph := NewTimeSeries(65, *label)
+	graph.Width = *width
+	graph.Height = *height
+	graph.Colors = *colors
+	graph.FontSize = *fontSize
 
 	readerrors := make(chan error)
 	watchers := make(ErrorWatchers, 0)
 	go watchers.Broadcast(readerrors)
 
-	go hist.Read(readerrors)
+	go graph.Read(readerrors)
 
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 
 	indexfile := bundle.ReadFile("index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
 	http.HandleFunc("/", logRequest(func(w http.ResponseWriter, r *http.Request) {
-		msg, err := json.Marshal(&hist)
+		msg, err := json.Marshal(&graph)
 		if err != nil {
 			fmt.Println("FAIL", err)
 			return
@@ -253,7 +361,7 @@ func main() {
 			return
 		}
 
-		sendJSON(w, hist)
+		sendJSON(w, graph)
 		flusher.Flush()
 
 		changed, lastCount := false, 0
@@ -268,11 +376,11 @@ func main() {
 				return
 
 			case _ = <-ticker.C:
-				changed, lastCount = hist.Changed(lastCount)
+				changed, lastCount = graph.Changed(lastCount)
 				if !changed {
 					continue
 				}
-				sendJSON(w, hist)
+				sendJSON(w, graph)
 				flusher.Flush()
 			}
 		}
