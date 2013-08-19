@@ -134,7 +134,8 @@
         styles.push('text.inside { fill: ' + colors.bg + '}');
       }
       if (colors.bar) {
-        styles.push('.bar { fill: ' + colors.bar + '}');
+        styles.push('.dot, .bar { fill: ' + colors.bar + '}');
+        styles.push('path.line { stroke: ' + colors.bar + '}');
       }
       return styles.join('\n');
     },
@@ -233,9 +234,10 @@
       return;
     }
 
-    //applyStyle(opts);
-    var width = opts.Width; // + 65;
-    var height = opts.Height; // + 200;
+    applyStyle(opts);
+
+    var width = opts.Width;
+    var height = opts.Height;
 
     var x = d3.time.scale()
       .domain(d3.extent(data, function (d) { return d.x; }))
@@ -294,6 +296,72 @@
     timeSeries(ts, data);
   };
 
+  var scatterPlot = function (data, opts) {
+    if (data.length <= 1) {
+      // TODO: don't return, show something
+      return;
+    }
+
+    applyStyle(opts);
+
+    var width = opts.Width;
+    var height = opts.Height;
+
+    var x = d3.scale.linear()
+      .domain(d3.extent(data, function (d) { return d.x; }))
+      .range([0, width]);
+
+    var y = d3.scale.linear()
+      .domain(d3.extent(data, function (d) { return d.y; }))
+      .range([height, 0]);
+
+    var xAxis = d3.svg.axis().scale(x).orient('bottom');
+    var yAxis = d3.svg.axis().scale(y).orient('left');
+    var line = d3.svg.line()
+      .x(function (d) { return x(d.x); })
+      .y(function (d) { return y(d.y); });
+
+    var svg = d3.select('body').append('svg')
+      .attr('width', width + 65)
+      .attr('height', height + 105)
+      .append('g')
+      .attr('transform', _translate(50, 50));
+      // TODO translate amount based on axis width & svg width
+
+    svg.append('g')
+      .attr('transform', _translate(width * 0.5, height + 50))
+      .append('text')
+      .text(opts.Label)
+      .attr('class', 'label')
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '1.1em')
+      .attr('font-weight', 'bold');
+
+    svg.selectAll(".dot").data(data)
+      .enter().append("circle")
+        .attr("class", "dot")
+        .attr("r", 3.5)
+        .attr("cx", function(d) { return x(d.x); })
+        .attr("cy", function(d) { return y(d.y); });
+
+    svg.append('g')
+      .attr('class', 'y axis')
+      .attr('transform', _translate(x(Math.max(0, x.domain()[0])), 0))
+      .call(yAxis);
+
+    svg.append('g')
+      .attr('class', 'x axis')
+      .attr('transform', _translate(0, y(Math.max(0, y.domain()[0]))))
+      .call(xAxis);
+  };
+  var pushScatterPlot = window.pushScatterPlot = function (data) {
+    var sp = d3.map(data.Values).entries().map(function (i) {
+      return {x: parseFloat(i.key), y: i.value};
+    });
+    d3.select('svg').remove();
+    scatterPlot(sp, data);
+  };
+
   var events = new EventSource('/data');
   events.onmessage = function (e) {
     var data = JSON.parse(e.data);
@@ -309,6 +377,9 @@
       pushHistogram(data);
     } else if (data.Layout == 'time-series') {
       pushTimeSeries(data);
+    } else if (data.Layout == 'scatterplot') {
+      pushScatterPlot(data);
     }
   };
 })();
+// TODO auto height

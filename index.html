@@ -7,13 +7,14 @@
 body { font-family: Lato, sans-serif; }
 svg { margin: auto; position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
 g, rect, text, path, line { shape-rendering: crispEdges; }
+circle { shape-rendering: geometricPrecision; }
 
 .axis path, .axis line { fill: none; stroke: #000; }
 
 text.outside { fill: #000; }
 text.inside { fill: #fff; }
 
-.bar { fill: #ffa937; font-size: 0.9em; }
+.dot, .bar { fill: #ffa937; font-size: 0.9em; }
 
 path.line { fill: none; stroke: #ffa937; stroke-width: 1.5px;
   shape-rendering: geometricPrecision; }
