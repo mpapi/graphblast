@@ -132,6 +132,7 @@
         styles.push('.axis path, .axis line { stroke: ' + colors.fg + '}');
         styles.push('text, text.outside { fill: ' + colors.fg + '}');
         styles.push('text.inside { fill: ' + colors.bg + '}');
+        styles.push('pre.lines { color: ' + colors.fg + '}');
       }
       if (colors.bar) {
         styles.push('.dot, .bar { fill: ' + colors.bar + '}');
@@ -354,12 +355,37 @@
       .attr('transform', _translate(0, y(Math.max(0, y.domain()[0]))))
       .call(xAxis);
   };
+
   var pushScatterPlot = window.pushScatterPlot = function (data) {
     var sp = d3.map(data.Values).entries().map(function (i) {
       return {x: parseFloat(i.key), y: i.value};
     });
     d3.select('svg').remove();
     scatterPlot(sp, data);
+  };
+
+  var state = {lastLine: 0, lastLabel: null};
+  var pushLogFile = window.pushLogFile = function (data) {
+    applyStyle(data);
+    var logLines = d3.select('pre.lines');
+    // TODO do a better job with this -- look at the last *Count* and label
+    if (data.Label !== state.lastLabel) {
+      state.lastLine = 0;
+      logLines.remove();
+    }
+    if (logLines.empty()) {
+      logLines = d3.select('body').append('pre').classed('lines', true);
+    }
+    d3.range(state.lastLine, data.Count).forEach(function (i) {
+      var val = data.Values[i.toString()];
+      if (val !== undefined) {
+        val = '<span>[' + new Date().toISOString() + ']</span> ' + val;
+        logLines.html(logLines.html() + val + '\n');
+      }
+    });
+    logLines.node().scrollIntoView(false);
+    state.lastLine = data.Count;
+    state.lastLabel = data.Label;
   };
 
   var events = new EventSource('/data');
@@ -372,13 +398,14 @@
     }
     console.debug(data);
     // TODO show EOF, others
-    // TODO switch on "histogram" type
     if (data.Layout === 'histogram') {
       pushHistogram(data);
     } else if (data.Layout == 'time-series') {
       pushTimeSeries(data);
     } else if (data.Layout == 'scatterplot') {
       pushScatterPlot(data);
+    } else if (data.Layout == 'logfile') {
+      pushLogFile(data);
     }
   };
 })();
