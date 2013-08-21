@@ -2,14 +2,13 @@
 (function () {
   'use strict';
 
-  // TODO: it might be better to rotate the whole thing, and then individually
-  // rotate each piece of text back
-
   // Returns a value for the SVG "transform" property for translating by x, y.
   var _translate = function (x, y) {
     return ['translate(', x, ',', y, ')'].join('');
   };
 
+  // Returns a function that, when passed a node, calls `func` (with node
+  // as the receiver) on each key/value pair in `params`.
   var setter = function (params, func) {
     if (func === undefined) {
       func = 'attr';
@@ -22,6 +21,10 @@
     };
   };
 
+  // Orientation has functions for computing the placement and dimensions of
+  // graphs in different orientations.
+  //
+  // TODO Consider rotating the whole graph and just rotating the text back
   var Orientation = {
     wide: function (data, axisLength, barLength) {
       return {
@@ -161,16 +164,16 @@
     CSS.overrides().text(styles.join('\n'));
   };
 
+  // TODO There's a lot that can be factored out of this for other graph types
   var histogram = function (data, opts) {
 
     if (data.length <= 1) {
-      // TODO: don't return, show something
+      // TODO Show something/anything here instead of a blank screen
       return;
     }
 
     applyStyle(opts);
 
-    // TODO: dynamic with screen resize, underscore debounce?
     var orient = orientation(opts, data);
 
     var x = d3.scale.linear()
@@ -191,7 +194,7 @@
       .attr('height', orient.svg.height)
       .append('g')
       .attr('transform', _translate(50, 50));
-      // TODO translate amount based on axis width & svg width
+      // TODO Use axis/svg width for translate instead of hard-coding
 
     svg.append('g')
       .attr('transform', _translate(orient.label.x, orient.label.y))
@@ -220,7 +223,7 @@
       .call(axis);
   };
 
-  var pushHistogram = window.pushHistogram = function (data) {
+  var pushHistogram = function (data) {
     var hist = d3.map(data.Values).entries().map(function (i) {
       return {x: parseFloat(i.key), y: i.value};
     });
@@ -231,7 +234,7 @@
 
   var timeSeries = function (data, opts) {
     if (data.length <= 1) {
-      // TODO: don't return, show something
+      // TODO Show something/anything here instead of a blank screen
       return;
     }
 
@@ -259,7 +262,7 @@
       .attr('height', height + 105)
       .append('g')
       .attr('transform', _translate(50, 50));
-      // TODO translate amount based on axis width & svg width
+      // TODO Use axis/svg width for translate instead of hard-coding
 
     svg.append('g')
       .attr('transform', _translate(width * 0.5, height + 50))
@@ -269,8 +272,6 @@
       .attr('text-anchor', 'middle')
       .attr('font-size', '1.1em')
       .attr('font-weight', 'bold');
-      //.attr('transform', 'rotate(' + orient.label.rotate + ')');
-
 
     svg.append('path')
       .datum(data)
@@ -287,7 +288,7 @@
       .call(xAxis);
   };
 
-  var pushTimeSeries = window.pushTimeSeries = function (data) {
+  var pushTimeSeries = function (data) {
     var ts = d3.map(data.Values).entries().sort(function (a, b) {
       return d3.ascending(a.key, b.key);
     }).map(function (i) {
@@ -299,7 +300,7 @@
 
   var scatterPlot = function (data, opts) {
     if (data.length <= 1) {
-      // TODO: don't return, show something
+      // TODO Show something/anything here instead of a blank screen
       return;
     }
 
@@ -318,7 +319,7 @@
 
     var xAxis = d3.svg.axis().scale(x).orient('bottom');
     var yAxis = d3.svg.axis().scale(y).orient('left');
-    var line = d3.svg.line()
+    d3.svg.line()
       .x(function (d) { return x(d.x); })
       .y(function (d) { return y(d.y); });
 
@@ -327,7 +328,7 @@
       .attr('height', height + 105)
       .append('g')
       .attr('transform', _translate(50, 50));
-      // TODO translate amount based on axis width & svg width
+      // TODO Use axis/svg width for translate instead of hard-coding
 
     svg.append('g')
       .attr('transform', _translate(width * 0.5, height + 50))
@@ -338,12 +339,12 @@
       .attr('font-size', '1.1em')
       .attr('font-weight', 'bold');
 
-    svg.selectAll(".dot").data(data)
-      .enter().append("circle")
-        .attr("class", "dot")
-        .attr("r", 3.5)
-        .attr("cx", function(d) { return x(d.x); })
-        .attr("cy", function(d) { return y(d.y); });
+    svg.selectAll('.dot').data(data)
+      .enter().append('circle')
+        .attr('class', 'dot')
+        .attr('r', 3.5)
+        .attr('cx', function(d) { return x(d.x); })
+        .attr('cy', function(d) { return y(d.y); });
 
     svg.append('g')
       .attr('class', 'y axis')
@@ -356,19 +357,19 @@
       .call(xAxis);
   };
 
-  var pushScatterPlot = window.pushScatterPlot = function (data) {
+  var pushScatterPlot = function (data) {
     var sp = d3.map(data.Values).entries().map(function (i) {
-      return {x: parseFloat(i.key), y: i.value};
+      return {x: parseFloat(i.key.split('|')[0]), y: i.value};
     });
     d3.select('svg').remove();
     scatterPlot(sp, data);
   };
 
   var state = {lastLine: 0, lastLabel: null};
-  var pushLogFile = window.pushLogFile = function (data) {
+  var pushLogFile = function (data) {
     applyStyle(data);
     var logLines = d3.select('pre.lines');
-    // TODO do a better job with this -- look at the last *Count* and label
+    // TODO Look at the last count, too, so we can resume
     if (data.Label !== state.lastLabel) {
       state.lastLine = 0;
       logLines.remove();
@@ -388,25 +389,25 @@
     state.lastLabel = data.Label;
   };
 
+  var pushFuncs = {
+    'histogram': pushHistogram,
+    'time-series': pushTimeSeries,
+    'scatterplot': pushScatterPlot,
+    'logfile': pushLogFile
+  };
+
   var events = new EventSource('/data');
   events.onmessage = function (e) {
     var data = JSON.parse(e.data);
     if (data.type && data.type === 'error') {
-      // TODO show the error
+      // TODO Indicate the error to the user, somehow
       console.error(data);
       return;
     }
     console.debug(data);
-    // TODO show EOF, others
-    if (data.Layout === 'histogram') {
-      pushHistogram(data);
-    } else if (data.Layout == 'time-series') {
-      pushTimeSeries(data);
-    } else if (data.Layout == 'scatterplot') {
-      pushScatterPlot(data);
-    } else if (data.Layout == 'logfile') {
-      pushLogFile(data);
-    }
+    pushFuncs[data.Layout](data);
   };
+
+  // TODO Indicate EOF/disconnect to the user
+  // TODO Auto-resize graphs when window size changes
 })();
-// TODO auto height
