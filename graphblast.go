@@ -68,7 +68,8 @@ func doRead(input io.Reader, errors chan error, process func(string)) {
 }
 
 type Graph interface {
-	Changed() (bool, int)
+	Changed(int) (bool, int)
+	Read(chan error)
 }
 
 type LogFile struct {
@@ -91,7 +92,7 @@ func NewLogFile(window int, label string) *LogFile {
 		Layout: "logfile",
 		Values: make(map[string]string, 1024),
 		Label:  label,
-        Window: window}
+		Window: window}
 }
 
 func (lf *LogFile) Changed(indicator int) (bool, int) {
@@ -110,7 +111,7 @@ func (lf *LogFile) Add(line string, err error) {
 	lf.Values[fmt.Sprintf("%v", lf.Count)] = line
 	lf.Count += 1
 	if len(lf.Values) > lf.Window {
-		delete(lf.Values, fmt.Sprintf("%v", lf.Count - lf.Window - 1))
+		delete(lf.Values, fmt.Sprintf("%v", lf.Count-lf.Window-1))
 	}
 }
 
@@ -196,7 +197,6 @@ func (sp *ScatterPlot) Read(errs chan error) {
 		sp.Add(parsedX, parsedVal, err)
 	})
 }
-
 
 type TimeSeries struct {
 	Values map[string]Countable
@@ -431,6 +431,43 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func buildGraph(arg string) Graph {
+	switch arg {
+	case "histogram":
+		graph := NewHistogram(*bucket, *label, *wide)
+		graph.Width = *width
+		graph.Height = *height
+		graph.Colors = *colors
+		graph.FontSize = *fontSize
+		return graph
+	case "time-series":
+		graph := NewTimeSeries(65, *label)
+		graph.Width = *width
+		graph.Height = *height
+		graph.Colors = *colors
+		graph.FontSize = *fontSize
+		return graph
+	case "scatterplot":
+		graph := NewScatterPlot(*label)
+		graph.Width = *width
+		graph.Height = *height
+		graph.Colors = *colors
+		graph.FontSize = *fontSize
+		return graph
+	case "logfile":
+		graph := NewLogFile(5, *label)
+		graph.Colors = *colors
+		graph.FontSize = *fontSize
+		return graph
+		// TODO window
+		// TODO collapse lines
+		// TODO send diffs only
+		// TODO exit on EOF
+		// TODO capture timestamps
+	}
+	panic("no graph for type")
+}
+
 // TODO scatterplot color/size options
 // TODO cartogram
 
@@ -438,36 +475,8 @@ func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	flag.Parse()
 
+	graph := buildGraph(flag.Arg(0))
 	// TODO have graph return a FlagSet
-	/*
-		hist := NewHistogram(*bucket, *label, *wide)
-		hist.Width = *width
-		hist.Height = *height
-		hist.Colors = *colors
-		hist.FontSize = *fontSize
-	*/
-	/*
-	graph := NewTimeSeries(65, *label)
-	graph.Width = *width
-	graph.Height = *height
-	graph.Colors = *colors
-	graph.FontSize = *fontSize
-	*/
-	/*
-	graph := NewScatterPlot(*label)
-	graph.Width = *width
-	graph.Height = *height
-	graph.Colors = *colors
-	graph.FontSize = *fontSize
-	*/
-	graph := NewLogFile(5, *label)
-	graph.Colors = *colors
-	graph.FontSize = *fontSize
-	// TODO window
-	// TODO collapse lines
-	// TODO send diffs only
-	// TODO exit on EOF
-	// TODO capture timestamps
 
 	readerrors := make(chan error)
 	watchers := make(ErrorWatchers, 0)
