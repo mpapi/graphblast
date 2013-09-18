@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bundle"
 	"bytes"
-	"container/list"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -14,9 +13,7 @@ import (
 	"log"
 	"math"
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -72,291 +69,8 @@ type Graph interface {
 	Read(chan error)
 }
 
-type LogFile struct {
-	Values map[string]string
-
-	Layout string // the layout to use (interpreted by JS)
-	Label  string // the label of the display
-	Window int    // the number of lines to retain
-
-	Colors   string // the colors to use when displaying the graph
-	FontSize string // the CSS font size to use when displaying the graph
-
-	Count    int // the number of values encountered so far
-	Filtered int // the number of values filtered out so far
-	Errors   int // the number of values skipped due to errors so far
-}
-
-func NewLogFile(window int, label string) *LogFile {
-	return &LogFile{
-		Layout: "logfile",
-		Values: make(map[string]string, 1024),
-		Label:  label,
-		Window: window}
-}
-
-func (lf *LogFile) Changed(indicator int) (bool, int) {
-	if lf.Count <= indicator {
-		return false, indicator
-	}
-	return true, lf.Count
-}
-
-func (lf *LogFile) Add(line string, err error) {
-	if err != nil {
-		lf.Errors += 1
-		return
-	}
-
-	lf.Values[fmt.Sprintf("%v", lf.Count)] = line
-	lf.Count += 1
-	if len(lf.Values) > lf.Window {
-		delete(lf.Values, fmt.Sprintf("%v", lf.Count-lf.Window-1))
-	}
-}
-
-func (lf *LogFile) Read(errs chan error) {
-	doRead(os.Stdin, errs, func(line string) {
-		lf.Add(strings.TrimSpace(line), nil)
-	})
-}
-
 // TODO list of x/y pairs (x is string, y is countable -- then only send deltas)
 // TODO make use of embedding
-
-type ScatterPlot struct {
-	Values map[string]Countable
-
-	Layout string // the layout to use (interpreted by JS)
-	Label  string // the label of the histogram
-	Width  int    // the maximum graph width in pixels
-	Height int    // the maximum graph height in pixels
-
-	Colors   string // the colors to use when displaying the graph
-	FontSize string // the CSS font size to use when displaying the graph
-
-	Min Countable // the minimum value encountered so far
-	Max Countable // the maximum value encountered so far
-
-	Count    int // the number of values encountered so far
-	Filtered int // the number of values filtered out so far
-	Errors   int // the number of values skipped due to errors so far
-}
-
-func NewScatterPlot(label string) *ScatterPlot {
-	return &ScatterPlot{
-		Layout: "scatterplot",
-		Values: make(map[string]Countable, 1024),
-		Label:  label,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
-}
-
-func (sp *ScatterPlot) Changed(indicator int) (bool, int) {
-	if sp.Count <= indicator {
-		return false, indicator
-	}
-	return true, sp.Count
-}
-
-// TODO interface Collection with methods for updating min/max/etc.
-
-func (sp *ScatterPlot) Add(x Countable, val Countable, err error) {
-	if err != nil {
-		sp.Errors += 1
-		return
-	} else if val < Countable(*min) || val > Countable(*max) {
-		sp.Filtered += 1
-		return
-	}
-
-	if val < sp.Min {
-		sp.Min = val
-	}
-	if val > sp.Max {
-		sp.Max = val
-	}
-
-	sp.Count += 1
-	sp.Values[fmt.Sprintf("%v", x)] = val
-}
-
-func (sp *ScatterPlot) Read(errs chan error) {
-	doRead(os.Stdin, errs, func(line string) {
-		parts := strings.SplitN(strings.TrimSpace(line), " ", 2)
-		if len(parts) != 2 {
-			sp.Add(0, 0, errors.New("invalid line"))
-			return
-		}
-		parsedX, err := Parse(parts[0])
-		if err != nil {
-			sp.Add(0, 0, err)
-			return
-		}
-		parsedVal, err := Parse(parts[1])
-		sp.Add(parsedX, parsedVal, err)
-	})
-}
-
-type TimeSeries struct {
-	Values map[string]Countable
-	times  *list.List
-
-	Layout string // the layout to use (interpreted by JS)
-	Label  string // the label of the histogram
-	Width  int    // the maximum graph width in pixels
-	Height int    // the maximum graph height in pixels
-	Window int    // the number of points to retain
-
-	Colors   string // the colors to use when displaying the graph
-	FontSize string // the CSS font size to use when displaying the graph
-
-	Min Countable // the minimum value encountered so far
-	Max Countable // the maximum value encountered so far
-
-	Count    int // the number of values encountered so far
-	Filtered int // the number of values filtered out so far
-	Errors   int // the number of values skipped due to errors so far
-}
-
-func NewTimeSeries(window int, label string) *TimeSeries {
-	return &TimeSeries{
-		times:  list.New(),
-		Layout: "time-series",
-		Values: make(map[string]Countable, 1024),
-		Window: window,
-		Label:  label,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
-}
-
-func (ts *TimeSeries) Changed(indicator int) (bool, int) {
-	if ts.Count <= indicator {
-		return false, indicator
-	}
-	return true, ts.Count
-}
-
-// TODO interface Collection with methods for updating min/max/etc.
-
-func (ts *TimeSeries) Add(when time.Time, val Countable, err error) {
-	if err != nil {
-		ts.Errors += 1
-		return
-	} else if val < Countable(*min) || val > Countable(*max) {
-		ts.Filtered += 1
-		return
-	}
-
-	if val < ts.Min {
-		ts.Min = val
-	}
-	if val > ts.Max {
-		ts.Max = val
-	}
-
-	ts.Count += 1
-	key := when.Format(time.RFC3339Nano)
-	ts.times.PushBack(key)
-	ts.Values[key] = val
-	if ts.times.Len() > ts.Window {
-		drop := ts.times.Front()
-		ts.times.Remove(drop)
-		dropped := drop.Value.(string)
-		delete(ts.Values, dropped)
-	}
-}
-
-func (ts *TimeSeries) Read(errors chan error) {
-	doRead(os.Stdin, errors, func(line string) {
-		parsed, err := Parse(strings.TrimSpace(line))
-		ts.Add(time.Now(), parsed, err)
-	})
-}
-
-// Collects and buckets values. Stats (min, max, total, etc.) are computed as
-// countable values come in.
-type Histogram struct {
-	Values map[string]Countable
-
-	Layout string // the layout to use (interpreted by JS)
-	Bucket int    // the histogram bucket size
-	Label  string // the label of the histogram
-	Wide   bool   // whether to use the alternate wide graph orientation
-	Width  int    // the maximum graph width in pixels
-	Height int    // the maximum graph height in pixels
-
-	Colors   string // the colors to use when displaying the graph
-	FontSize string // the CSS font size to use when displaying the graph
-
-	Min Countable // the minimum value encountered so far
-	Max Countable // the maximum value encountered so far
-	Sum Countable // the sum of values encountered so far
-
-	Count    int // the number of values encountered so far
-	Filtered int // the number of values filtered out so far
-	Errors   int // the number of values skipped due to errors so far
-}
-
-// Returns a new histogram. The bucket size is used to count values that
-// fall within a different size. The `label` and `wide` options control
-// the display of the rendered graph.
-func NewHistogram(bucket int, label string, wide bool) *Histogram {
-	return &Histogram{
-		Layout: "histogram",
-		Values: make(map[string]Countable, 1024),
-		Bucket: bucket,
-		Label:  label,
-		Wide:   wide,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
-}
-
-// Returns whether the graph has changed since the `indicator` value was
-// returned, and a new indicator if it has..
-func (hist *Histogram) Changed(indicator int) (bool, int) {
-	if hist.Count <= indicator {
-		return false, indicator
-	}
-	return true, hist.Count
-}
-
-// Adds a countable value, modifying the stats and counts accordingly.
-func (hist *Histogram) Add(val Countable, err error) {
-	if err != nil {
-		hist.Errors += 1
-		return
-	} else if val < Countable(*min) || val > Countable(*max) {
-		hist.Filtered += 1
-		return
-	}
-
-	if val < hist.Min {
-		hist.Min = val
-	}
-	if val > hist.Max {
-		hist.Max = val
-	}
-	hist.Sum += val
-	hist.Count += 1
-	hist.Values[val.Bucket(hist.Bucket)] += 1
-}
-
-// Read and parse countable values from stdin, add them to a histogram and
-// update stats.
-func (hist *Histogram) Read(errors chan error) {
-	logger("starting to read data")
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			logger("finished reading data due to %v", err)
-			errors <- err
-			return
-		}
-		hist.Add(Parse(strings.TrimSpace(line)))
-	}
-}
 
 // EventSource requests that want to listen for errors (including EOF) can
 // register themselves here.
@@ -440,7 +154,7 @@ func buildGraph(arg string) Graph {
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
 		return graph
-	case "time-series":
+	case "timeseries":
 		graph := NewTimeSeries(65, *label)
 		graph.Width = *width
 		graph.Height = *height
