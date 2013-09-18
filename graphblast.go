@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -148,7 +149,7 @@ func main() {
 	watchers := make(ErrorWatchers, 0)
 	go watchers.Broadcast(readerrors)
 
-	go graph.Read(readerrors)
+	go graph.Read(os.Stdin, readerrors)
 
 	ticker := time.NewTicker(time.Duration(*delay) * time.Second)
 

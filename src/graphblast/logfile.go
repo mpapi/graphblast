@@ -2,7 +2,7 @@ package graphblast
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 )
 
@@ -49,8 +49,8 @@ func (lf *LogFile) Add(line string, err error) {
 	}
 }
 
-func (lf *LogFile) Read(errs chan error) {
-	doRead(os.Stdin, errs, func(line string) {
+func (lf *LogFile) Read(reader io.Reader, errs chan error) {
+	doRead(reader, errs, func(line string) {
 		// TODO Capture timestamps for log lines
 		lf.Add(strings.TrimSpace(line), nil)
 	})

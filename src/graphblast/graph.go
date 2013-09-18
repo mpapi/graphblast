@@ -21,7 +21,7 @@ func (r *Range) MarshalJSON() ([]byte, error) {
 
 type Graph interface {
 	Changed(int) (bool, int)
-	Read(chan error)
+	Read(io.Reader, chan error)
 	// TODO Make it possible to determine and send deltas
 }
 

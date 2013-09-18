@@ -1,8 +1,8 @@
 package graphblast
 
 import (
+	"io"
 	"math"
-	"os"
 	"strings"
 )
 
@@ -79,8 +79,8 @@ func (hist *Histogram) Add(val Countable, err error) {
 
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
-func (hist *Histogram) Read(errors chan error) {
-	doRead(os.Stdin, errors, func(line string) {
+func (hist *Histogram) Read(reader io.Reader, errors chan error) {
+	doRead(reader, errors, func(line string) {
 		hist.Add(Parse(strings.TrimSpace(line)))
 	})
 }
