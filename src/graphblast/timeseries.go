@@ -1,4 +1,4 @@
-package main
+package graphblast
 
 import (
 	"container/list"
@@ -18,6 +18,8 @@ type TimeSeries struct {
 	Height int    // the maximum graph height in pixels
 	Window int    // the number of points to retain
 
+	Allowed Range
+
 	Colors   string // the colors to use when displaying the graph
 	FontSize string // the CSS font size to use when displaying the graph
 
@@ -31,13 +33,14 @@ type TimeSeries struct {
 
 func NewTimeSeries(window int, label string) *TimeSeries {
 	return &TimeSeries{
-		times:  list.New(),
-		Layout: "time-series",
-		Values: make(map[string]Countable, 1024),
-		Window: window,
-		Label:  label,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
+		times:   list.New(),
+		Layout:  "time-series",
+		Values:  make(map[string]Countable, 1024),
+		Window:  window,
+		Label:   label,
+		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
+		Min:     Countable(math.Inf(1)),
+		Max:     Countable(math.Inf(-1))}
 }
 
 func (ts *TimeSeries) Changed(indicator int) (bool, int) {
@@ -47,13 +50,11 @@ func (ts *TimeSeries) Changed(indicator int) (bool, int) {
 	return true, ts.Count
 }
 
-// TODO interface Collection with methods for updating min/max/etc.
-
 func (ts *TimeSeries) Add(when time.Time, val Countable, err error) {
 	if err != nil {
 		ts.Errors += 1
 		return
-	} else if val < Countable(*min) || val > Countable(*max) {
+	} else if !ts.Allowed.Contains(val) {
 		ts.Filtered += 1
 		return
 	}

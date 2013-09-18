@@ -1,4 +1,4 @@
-.PHONY: lint test
+.PHONY: lint test coverage
 
 graphblast: graphblast.go script.js index.html lint test
 	go build
@@ -9,8 +9,12 @@ graphblast: graphblast.go script.js index.html lint test
 	mv graphblast.out graphblast
 	strip graphblast
 
-test: graphblast.go
-	go test -v
+test:
+	go test -v . graphblast bundle
+
+coverage:
+	./bin/gocov test -v graphblast > report.json
+	./bin/gocov annotate -ceiling=100 report.json
 
 lint: script.js
 	jshint script.js

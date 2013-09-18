@@ -1,7 +1,6 @@
-package main
+package graphblast
 
 import (
-	"bufio"
 	"math"
 	"os"
 	"strings"
@@ -18,6 +17,8 @@ type Histogram struct {
 	Wide   bool   // whether to use the alternate wide graph orientation
 	Width  int    // the maximum graph width in pixels
 	Height int    // the maximum graph height in pixels
+
+	Allowed Range
 
 	Colors   string // the colors to use when displaying the graph
 	FontSize string // the CSS font size to use when displaying the graph
@@ -36,13 +37,14 @@ type Histogram struct {
 // the display of the rendered graph.
 func NewHistogram(bucket int, label string, wide bool) *Histogram {
 	return &Histogram{
-		Layout: "histogram",
-		Values: make(map[string]Countable, 1024),
-		Bucket: bucket,
-		Label:  label,
-		Wide:   wide,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
+		Layout:  "histogram",
+		Values:  make(map[string]Countable, 1024),
+		Bucket:  bucket,
+		Label:   label,
+		Wide:    wide,
+		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
+		Min:     Countable(math.Inf(1)),
+		Max:     Countable(math.Inf(-1))}
 }
 
 // Returns whether the graph has changed since the `indicator` value was
@@ -59,7 +61,7 @@ func (hist *Histogram) Add(val Countable, err error) {
 	if err != nil {
 		hist.Errors += 1
 		return
-	} else if val < Countable(*min) || val > Countable(*max) {
+	} else if !hist.Allowed.Contains(val) {
 		hist.Filtered += 1
 		return
 	}
@@ -78,15 +80,7 @@ func (hist *Histogram) Add(val Countable, err error) {
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
 func (hist *Histogram) Read(errors chan error) {
-	logger("starting to read data")
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			logger("finished reading data due to %v", err)
-			errors <- err
-			return
-		}
+	doRead(os.Stdin, errors, func(line string) {
 		hist.Add(Parse(strings.TrimSpace(line)))
-	}
+	})
 }

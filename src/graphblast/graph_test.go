@@ -1,56 +1,29 @@
-package main
+package graphblast
 
 import (
-	"errors"
 	"testing"
 )
 
-func Test_HistogramAdd(t *testing.T) {
-	hist := NewHistogram(1, "", false)
-	hist.Add(1, nil)
-
-	if len(hist.Values) != 1 {
-		t.Error("histogram did not record count")
+func TestRangeContains(t *testing.T) {
+	r := Range{Min: -1, Max: 1}
+	if !r.Contains(0) {
+		t.Error("contains failed for a number in range")
 	}
-	if hist.Values["1"] != 1 {
-		t.Error("histogram recorded wrong count")
+	if !r.Contains(-1) {
+		t.Error("contains failed to be inclusive for min")
 	}
-	if hist.Min != 1 || hist.Max != 1 || hist.Sum != 1 {
-		t.Error("histogram recorded wrong value stat")
+	if !r.Contains(1) {
+		t.Error("contains failed to be inclusive for max")
 	}
-	if hist.Count != 1 || hist.Filtered != 0 || hist.Errors != 0 {
-		t.Error("histogram recorded wrong count stat")
+	if r.Contains(-1.1) {
+		t.Error("contains failed for a number less than min")
 	}
-
-	hist.Add(-0.5, nil)
-
-	if len(hist.Values) != 2 {
-		t.Error("histogram did not record count")
-	}
-	if hist.Values["-1"] != 1 {
-		t.Error("histogram recorded wrong count")
-	}
-	if hist.Min != -0.5 || hist.Max != 1 || hist.Sum != 0.5 {
-		t.Error("histogram recorded wrong value stat")
-	}
-	if hist.Count != 2 || hist.Filtered != 0 || hist.Errors != 0 {
-		t.Error("histogram recorded wrong count stat")
+	if r.Contains(1.1) {
+		t.Error("contains failed for a number greater than max")
 	}
 }
 
-func Test_HistogramAddError(t *testing.T) {
-	hist := NewHistogram(1, "", false)
-	hist.Add(1, errors.New("fail"))
-
-	if len(hist.Values) != 0 {
-		t.Error("histogram recorded count for error")
-	}
-	if hist.Count != 0 || hist.Filtered != 0 || hist.Errors != 1 {
-		t.Error("histogram recorded wrong count stat")
-	}
-}
-
-func Test_CountableParse(t *testing.T) {
+func TestCountableParse(t *testing.T) {
 	c, err := Parse("0")
 	if c != 0 && err != nil {
 		t.Error("parse did not parse an integer")
@@ -82,7 +55,7 @@ func Test_CountableParse(t *testing.T) {
 	}
 }
 
-func Test_CountableBucket(t *testing.T) {
+func TestCountableBucket(t *testing.T) {
 	if Countable(4).Bucket(1) != "4" {
 		t.Error("bucket failed on int for bucket of size 1")
 	}

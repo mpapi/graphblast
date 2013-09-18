@@ -1,4 +1,4 @@
-package main
+package graphblast
 
 import (
 	"errors"
@@ -16,6 +16,8 @@ type ScatterPlot struct {
 	Width  int    // the maximum graph width in pixels
 	Height int    // the maximum graph height in pixels
 
+	Allowed Range
+
 	Colors   string // the colors to use when displaying the graph
 	FontSize string // the CSS font size to use when displaying the graph
 
@@ -29,11 +31,12 @@ type ScatterPlot struct {
 
 func NewScatterPlot(label string) *ScatterPlot {
 	return &ScatterPlot{
-		Layout: "scatterplot",
-		Values: make(map[string]Countable, 1024),
-		Label:  label,
-		Min:    Countable(math.Inf(1)),
-		Max:    Countable(math.Inf(-1))}
+		Layout:  "scatterplot",
+		Values:  make(map[string]Countable, 1024),
+		Label:   label,
+		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
+		Min:     Countable(math.Inf(1)),
+		Max:     Countable(math.Inf(-1))}
 }
 
 func (sp *ScatterPlot) Changed(indicator int) (bool, int) {
@@ -43,13 +46,11 @@ func (sp *ScatterPlot) Changed(indicator int) (bool, int) {
 	return true, sp.Count
 }
 
-// TODO interface Collection with methods for updating min/max/etc.
-
 func (sp *ScatterPlot) Add(x Countable, val Countable, err error) {
 	if err != nil {
 		sp.Errors += 1
 		return
-	} else if val < Countable(*min) || val > Countable(*max) {
+	} else if !sp.Allowed.Contains(val) {
 		sp.Filtered += 1
 		return
 	}
@@ -62,7 +63,8 @@ func (sp *ScatterPlot) Add(x Countable, val Countable, err error) {
 	}
 
 	sp.Count += 1
-	sp.Values[fmt.Sprintf("%v", x)] = val
+	// TODO This is an ugly hack
+	sp.Values[fmt.Sprintf("%v|%v", x, sp.Count)] = val
 }
 
 func (sp *ScatterPlot) Read(errs chan error) {

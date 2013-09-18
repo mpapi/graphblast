@@ -1,19 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"bundle"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
+	"graphblast"
 	"html/template"
 	"io"
-	"log"
 	"math"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -30,44 +28,7 @@ var width = flag.Int("width", 500, "width of the graph, in pixels")
 var height = flag.Int("height", 500, "height of the graph, in pixels")
 var colors = flag.String("colors", "", "comma-separated: bg, fg, bar color")
 var fontSize = flag.String("font-size", "", "font size (CSS)")
-
-// The type of the items to parse from stdin and count in the histogram.
-type Countable float64
-
-// Parses a countable value from a string, and returns a non-nil error if
-// parsing fails.
-func Parse(str string) (Countable, error) {
-	d, err := strconv.ParseFloat(str, 64)
-	return Countable(d), err
-}
-
-// Returns the bucket (as a string) of which the countable value should
-// increment the count, given the bucket size.
-func (d Countable) Bucket(size int) string {
-	if d < 0 {
-		d -= Countable(size)
-	}
-	return strconv.Itoa(int(d) / size * size)
-}
-
-func doRead(input io.Reader, errors chan error, process func(string)) {
-	logger("starting to read data")
-	reader := bufio.NewReader(input)
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			logger("finished reading data due to %v", err)
-			errors <- err
-			return
-		}
-		process(line)
-	}
-}
-
-type Graph interface {
-	Changed(int) (bool, int)
-	Read(chan error)
-}
+var window = flag.Int("window", 1000, "data window size")
 
 // TODO list of x/y pairs (x is string, y is countable -- then only send deltas)
 // TODO make use of embedding
@@ -103,13 +64,6 @@ func (ew *ErrorWatchers) Broadcast(errors chan error) {
 	}
 }
 
-func logger(format string, v ...interface{}) {
-	if !*verbose {
-		return
-	}
-	log.Printf(format+"\n", v...)
-}
-
 // Sets up a ResponseWriter for use as an EventSource.
 func EventSource(w http.ResponseWriter) (http.Flusher, http.CloseNotifier, error) {
 	f, canf := w.(http.Flusher)
@@ -137,43 +91,41 @@ func sendJSON(writer io.Writer, obj interface{}) {
 	fmt.Fprintf(writer, "data: %s\n\n", msg)
 }
 
-func logRequest(handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		logger("(%v) starting %v %v", r.RemoteAddr, r.Method, r.URL)
-		defer logger("(%v) finished %v %v", r.RemoteAddr, r.Method, r.URL)
-		handler(w, r)
-	}
-}
+func buildGraph(arg string) graphblast.Graph {
+	allowed := graphblast.Range{
+		Min: graphblast.Countable(*min),
+		Max: graphblast.Countable(*max)}
 
-func buildGraph(arg string) Graph {
 	switch arg {
 	case "histogram":
-		graph := NewHistogram(*bucket, *label, *wide)
+		graph := graphblast.NewHistogram(*bucket, *label, *wide)
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
+		graph.Allowed = allowed
 		return graph
 	case "timeseries":
-		graph := NewTimeSeries(65, *label)
+		graph := graphblast.NewTimeSeries(*window, *label)
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
+		graph.Allowed = allowed
 		return graph
 	case "scatterplot":
-		graph := NewScatterPlot(*label)
+		graph := graphblast.NewScatterPlot(*label)
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
+		graph.Allowed = allowed
 		return graph
 	case "logfile":
-		graph := NewLogFile(5, *label)
+		graph := graphblast.NewLogFile(*window, *label)
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
 		return graph
-		// TODO window
 		// TODO collapse lines
 		// TODO send diffs only
 		// TODO exit on EOF
@@ -186,8 +138,8 @@ func buildGraph(arg string) Graph {
 // TODO cartogram
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	flag.Parse()
+	graphblast.SetVerboseLogging(*verbose)
 
 	graph := buildGraph(flag.Arg(0))
 	// TODO have graph return a FlagSet
@@ -202,7 +154,7 @@ func main() {
 
 	indexfile := bundle.ReadFile("index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
-	http.HandleFunc("/", logRequest(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", graphblast.LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		msg, err := json.Marshal(&graph)
 		if err != nil {
 			fmt.Println("FAIL", err)
@@ -212,11 +164,11 @@ func main() {
 	}))
 
 	scriptfile := bytes.NewReader(bundle.ReadFile("script.js"))
-	http.HandleFunc("/script.js", logRequest(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/script.js", graphblast.LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "script.js", time.Now(), scriptfile)
 	}))
 
-	http.HandleFunc("/data", logRequest(func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/data", graphblast.LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		// Register a channel for passing errors to the HTTP client.
 		errors := watchers.Watch(r.RemoteAddr)
 		defer watchers.Unwatch(r.RemoteAddr)
@@ -253,6 +205,6 @@ func main() {
 		}
 	}))
 
-	logger("listening on %v", *listen)
+	graphblast.Log("listening on %v", *listen)
 	http.ListenAndServe(*listen, nil)
 }
