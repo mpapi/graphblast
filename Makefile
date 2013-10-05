@@ -1,6 +1,8 @@
-.PHONY: lint test coverage
+.PHONY: all lint test coverage
 
-graphblast: graphblast.go script.js index.html lint test
+all: lint test graphblast
+
+graphblast: graphblast.go src/graphblast/*.go script.js index.html
 	go build
 	objcopy graphblast \
 		--add-section script.js=script.js \
