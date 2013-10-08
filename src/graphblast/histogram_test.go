@@ -2,10 +2,11 @@ package graphblast
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
-func Test_HistogramAdd(t *testing.T) {
+func TestHistogramAdd(t *testing.T) {
 	hist := NewHistogram(1, "", false)
 	hist.Add(1, nil)
 
@@ -38,7 +39,7 @@ func Test_HistogramAdd(t *testing.T) {
 	}
 }
 
-func Test_HistogramAddError(t *testing.T) {
+func TestHistogramAddError(t *testing.T) {
 	hist := NewHistogram(1, "", false)
 	hist.Add(1, errors.New("fail"))
 
@@ -50,7 +51,7 @@ func Test_HistogramAddError(t *testing.T) {
 	}
 }
 
-func Test_HistogramAddFiltered(t *testing.T) {
+func TestHistogramAddFiltered(t *testing.T) {
 	hist := NewHistogram(1, "", false)
 	hist.Allowed = Range{Countable(-1), Countable(0)}
 	hist.Add(1, nil)
@@ -63,7 +64,7 @@ func Test_HistogramAddFiltered(t *testing.T) {
 	}
 }
 
-func Test_HistogramChanged(t *testing.T) {
+func TestHistogramChanged(t *testing.T) {
 	hist := NewHistogram(1, "", false)
 	changed, next := hist.Changed(0)
 	if changed {
@@ -80,5 +81,33 @@ func Test_HistogramChanged(t *testing.T) {
 	}
 	if next <= 0 {
 		t.Error("Changed should return a new indicator after changes")
+	}
+}
+
+func TestHistogramRead(t *testing.T) {
+	hist := NewHistogram(1, "", false)
+	reader := strings.NewReader("5\n5\n")
+	errs := make(chan error, 2)
+	hist.Read(reader, errs)
+	if hist.Count != 2 {
+		t.Error("Read failed to read the input fully")
+	}
+	if hist.Errors != 0 {
+		t.Error("Read failed to read the input without errors")
+	}
+	if hist.Values["5"] != 2 {
+		t.Error("Read failed to read the correct values")
+	}
+
+	reader = strings.NewReader("5\na\n")
+	hist.Read(reader, errs)
+	if hist.Count != 3 {
+		t.Error("Read failed to read the good part of a bad input")
+	}
+	if hist.Errors != 1 {
+		t.Error("Read failed to signal an error in the input")
+	}
+	if hist.Values["5"] != 3 {
+		t.Error("Read failed to read the correct values")
 	}
 }
