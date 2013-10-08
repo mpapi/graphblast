@@ -6,6 +6,11 @@ import (
 )
 
 var verbose bool = false
+var logfn func(string, ...interface{}) = log.Printf
+
+func SetLogger(logger *log.Logger) {
+	logfn = logger.Printf
+}
 
 func SetVerboseLogging(v bool) {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -16,7 +21,7 @@ func Log(format string, v ...interface{}) {
 	if !verbose {
 		return
 	}
-	log.Printf(format+"\n", v...)
+	logfn(format+"\n", v...)
 }
 
 func LogRequest(handler http.HandlerFunc) http.HandlerFunc {

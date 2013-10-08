@@ -158,7 +158,7 @@ func main() {
 	http.HandleFunc("/", graphblast.LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		msg, err := json.Marshal(&graph)
 		if err != nil {
-			fmt.Println("FAIL", err)
+			graphblast.Log("FAIL", err)
 			return
 		}
 		indexpage.Execute(w, string(msg))

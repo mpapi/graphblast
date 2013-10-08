@@ -45,12 +45,12 @@ func (d Countable) Bucket(size int) string {
 }
 
 func doRead(input io.Reader, errors chan error, process func(string)) {
-	/*logger("starting to read data")*/
+	Log("starting to read data")
 	reader := bufio.NewReader(input)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			/*logger("finished reading data due to %v", err)*/
+			Log("finished reading data due to %v", err)
 			errors <- err
 			return
 		}
