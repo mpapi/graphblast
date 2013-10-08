@@ -31,9 +31,6 @@ var colors = flag.String("colors", "", "comma-separated: bg, fg, bar color")
 var fontSize = flag.String("font-size", "", "font size (CSS)")
 var window = flag.Int("window", 1000, "data window size")
 
-// TODO list of x/y pairs (x is string, y is countable -- then only send deltas)
-// TODO make use of embedding
-
 // EventSource requests that want to listen for errors (including EOF) can
 // register themselves here.
 type ErrorWatchers map[string]chan error
@@ -127,23 +124,16 @@ func buildGraph(arg string) graphblast.Graph {
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
 		return graph
-		// TODO collapse lines
-		// TODO send diffs only
-		// TODO exit on EOF
-		// TODO capture timestamps
 	}
 	panic("no graph for type")
 }
-
-// TODO scatterplot color/size options
-// TODO cartogram
 
 func main() {
 	flag.Parse()
 	graphblast.SetVerboseLogging(*verbose)
 
+	// TODO Make graph-specific flags part of a subcommand/FlagSet
 	graph := buildGraph(flag.Arg(0))
-	// TODO have graph return a FlagSet
 
 	readerrors := make(chan error)
 	watchers := make(ErrorWatchers, 0)
