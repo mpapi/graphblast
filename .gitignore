@@ -1,4 +1,13 @@
-graphblast
-node_modules
+*.o
+*.so
+*.a
+
 pkg
 bin
+
+.coverage.json
+graphblast
+!src/graphblast
+
+node_modules
+src/github.com
