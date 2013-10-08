@@ -1,4 +1,4 @@
-.PHONY: all lint test coverage
+.PHONY: all deps lint test coverage
 
 all: lint test graphblast
 
@@ -15,8 +15,12 @@ test:
 	go test -v . graphblast bundle
 
 coverage:
-	./bin/gocov test -v graphblast > report.json
-	./bin/gocov annotate -ceiling=100 report.json
+	./bin/gocov test -v graphblast > .coverage.json
+	./bin/gocov annotate -ceiling=100 .coverage.json
 
 lint: script.js
 	jshint script.js
+
+deps:
+	npm update jshint
+	go get -u github.com/axw/gocov
