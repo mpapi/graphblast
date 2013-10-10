@@ -13,7 +13,7 @@ import (
 )
 
 func Index(graph Graph) http.HandlerFunc {
-	indexfile := bundle.ReadFile("index.html")
+	indexfile := bundle.ReadFile("assets/index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
 
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,7 @@ func Index(graph Graph) http.HandlerFunc {
 }
 
 func Script() http.HandlerFunc {
-	scriptfile := bytes.NewReader(bundle.ReadFile("script.js"))
+	scriptfile := bytes.NewReader(bundle.ReadFile("assets/script.js"))
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		http.ServeContent(w, r, "script.js", time.Now(), scriptfile)
 	})
