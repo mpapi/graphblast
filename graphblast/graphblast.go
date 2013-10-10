@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"graphblast"
+	"github.com/hut8labs/graphblast"
 	"math"
 	"net/http"
 	"os"

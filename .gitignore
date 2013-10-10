@@ -2,12 +2,10 @@
 *.so
 *.a
 
+src
 pkg
 bin
 
 .coverage.json
-graphblast
-!src/graphblast
 
 node_modules
-src/github.com

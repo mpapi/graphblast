@@ -1,11 +1,11 @@
 package graphblast
 
 import (
-	"bundle"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/hut8labs/graphblast/bundle"
 	"html/template"
 	"io"
 	"net/http"
