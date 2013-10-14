@@ -12,18 +12,12 @@ import (
 	"time"
 )
 
-func Index(graph Graph) http.HandlerFunc {
+func Index() http.HandlerFunc {
 	indexfile := bundle.ReadFile("assets/index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
 
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
-		msg, err := json.Marshal(&graph)
-		if err != nil {
-			Log("error: %s", err)
-			return
-		}
-		// TODO Use the initial JSON in the HTML template, or remove it here
-		indexpage.Execute(w, string(msg))
+		indexpage.Execute(w, nil)
 	})
 	// TODO Consider building the JS into the HTML, and removing Script()
 }

@@ -77,7 +77,7 @@ func main() {
 
 	updateFreq := time.Duration(*delay) * time.Second
 
-	http.HandleFunc("/", graphblast.Index(graph))
+	http.HandleFunc("/", graphblast.Index())
 	http.HandleFunc("/script.js", graphblast.Script())
 	http.HandleFunc("/data", graphblast.Events(updateFreq, watchers, graph))
 
