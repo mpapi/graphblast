@@ -23,8 +23,9 @@ coverage:
 	./bin/gocov test -v $(GO_PKG) > .coverage.json
 	./bin/gocov annotate -ceiling=100 .coverage.json
 
-lint: assets/script.js
+lint: $(GO_SRC) assets/script.js
 	jshint assets/script.js
+	gofmt -d $(GO_SRC) | tee /dev/stderr | wc -l | grep -q ^0$
 
 deps:
 	npm install jshint
