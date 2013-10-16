@@ -38,6 +38,9 @@ func Parse(str string) (Countable, error) {
 // Returns the bucket (as a string) of which the countable value should
 // increment the count, given the bucket size.
 func (d Countable) Bucket(size int) string {
+	if size <= 0 {
+		size = 1
+	}
 	if d < 0 {
 		d -= Countable(size)
 	}

@@ -21,12 +21,11 @@ type LogFile struct {
 	Errors   int // the number of values skipped due to errors so far
 }
 
-func NewLogFile(window int, label string) *LogFile {
+func NewLogFile() *LogFile {
 	return &LogFile{
 		Layout: "logfile",
-		Values: make(map[string]string, 1024),
-		Label:  label,
-		Window: window}
+		Window: 100,
+		Values: make(map[string]string, 1024)}
 }
 
 func (lf *LogFile) Changed(indicator int) (bool, int) {

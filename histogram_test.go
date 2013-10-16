@@ -7,7 +7,7 @@ import (
 )
 
 func TestHistogramAdd(t *testing.T) {
-	hist := NewHistogram(1, "", false)
+	hist := NewHistogram()
 	hist.Add(1, nil)
 
 	if len(hist.Values) != 1 {
@@ -40,7 +40,7 @@ func TestHistogramAdd(t *testing.T) {
 }
 
 func TestHistogramAddError(t *testing.T) {
-	hist := NewHistogram(1, "", false)
+	hist := NewHistogram()
 	hist.Add(1, errors.New("fail"))
 
 	if len(hist.Values) != 0 {
@@ -52,7 +52,7 @@ func TestHistogramAddError(t *testing.T) {
 }
 
 func TestHistogramAddFiltered(t *testing.T) {
-	hist := NewHistogram(1, "", false)
+	hist := NewHistogram()
 	hist.Allowed = Range{Countable(-1), Countable(0)}
 	hist.Add(1, nil)
 
@@ -65,7 +65,7 @@ func TestHistogramAddFiltered(t *testing.T) {
 }
 
 func TestHistogramChanged(t *testing.T) {
-	hist := NewHistogram(1, "", false)
+	hist := NewHistogram()
 	changed, next := hist.Changed(0)
 	if changed {
 		t.Error("histogram should be unchanged")
@@ -85,7 +85,7 @@ func TestHistogramChanged(t *testing.T) {
 }
 
 func TestHistogramRead(t *testing.T) {
-	hist := NewHistogram(1, "", false)
+	hist := NewHistogram()
 	reader := strings.NewReader("5\n5\n")
 	errs := make(chan error, 2)
 	hist.Read(reader, errs)

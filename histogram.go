@@ -32,16 +32,12 @@ type Histogram struct {
 	Errors   int // the number of values skipped due to errors so far
 }
 
-// Returns a new histogram. The bucket size is used to count values that
-// fall within a different size. The `label` and `wide` options control
-// the display of the rendered graph.
-func NewHistogram(bucket int, label string, wide bool) *Histogram {
+// Returns a new histogram.
+func NewHistogram() *Histogram {
 	return &Histogram{
 		Layout:  "histogram",
 		Values:  make(map[string]Countable, 1024),
-		Bucket:  bucket,
-		Label:   label,
-		Wide:    wide,
+		Wide:    false,
 		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
 		Min:     Countable(math.Inf(1)),
 		Max:     Countable(math.Inf(-1))}

@@ -7,7 +7,7 @@ import (
 )
 
 func TestScatterPlotAdd(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	sp.Add(1, 1, nil)
 
 	if len(sp.Values) != 1 {
@@ -27,7 +27,7 @@ func TestScatterPlotAdd(t *testing.T) {
 }
 
 func TestScatterPlotAddError(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	sp.Add(1, 1, errors.New("fail"))
 
 	if len(sp.Values) != 0 {
@@ -39,7 +39,7 @@ func TestScatterPlotAddError(t *testing.T) {
 }
 
 func TestScatterPlotAddFiltered(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	sp.Allowed = Range{Countable(-1), Countable(1)}
 	sp.Add(0, -100, nil)
 
@@ -52,7 +52,7 @@ func TestScatterPlotAddFiltered(t *testing.T) {
 }
 
 func TestScatterPlotAddNoFilter(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	sp.Allowed = Range{Countable(-1), Countable(1)}
 	sp.Add(-100, 0, nil)
 
@@ -65,7 +65,7 @@ func TestScatterPlotAddNoFilter(t *testing.T) {
 }
 
 func TestScatterPlotChanged(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	changed, next := sp.Changed(0)
 	if changed {
 		t.Error("Scatterplot should be changed")
@@ -85,7 +85,7 @@ func TestScatterPlotChanged(t *testing.T) {
 }
 
 func TestScatterPlotRead(t *testing.T) {
-	sp := NewScatterPlot("")
+	sp := NewScatterPlot()
 	reader := strings.NewReader("10 100\n20 200\n")
 	errs := make(chan error, 4)
 	sp.Read(reader, errs)

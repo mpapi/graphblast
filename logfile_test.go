@@ -7,7 +7,7 @@ import (
 )
 
 func TestLogFileAdd(t *testing.T) {
-	lf := NewLogFile(1, "")
+	lf := NewLogFile()
 	lf.Add("line1", nil)
 	if lf.Count != 1 {
 		t.Errorf("Add didn't increment the count")
@@ -24,7 +24,7 @@ func TestLogFileAdd(t *testing.T) {
 }
 
 func TestLogFileAddError(t *testing.T) {
-	lf := NewLogFile(1, "")
+	lf := NewLogFile()
 	lf.Add("line1", errors.New("fail"))
 	if lf.Errors != 1 {
 		t.Errorf("Add with error didn't increment the error count")
@@ -38,7 +38,8 @@ func TestLogFileAddError(t *testing.T) {
 }
 
 func TestLogFileAddWindow(t *testing.T) {
-	lf := NewLogFile(1, "")
+	lf := NewLogFile()
+	lf.Window = 1
 	lf.Add("line1", nil)
 	lf.Add("line2", nil)
 	if lf.Errors != 0 {
@@ -56,7 +57,7 @@ func TestLogFileAddWindow(t *testing.T) {
 }
 
 func TestLogFileChanged(t *testing.T) {
-	lf := NewLogFile(1, "")
+	lf := NewLogFile()
 	changed, next := lf.Changed(0)
 	if changed {
 		t.Error("log should be unchanged")
@@ -79,7 +80,7 @@ func TestLogFileRead(t *testing.T) {
 	reader := strings.NewReader("line1\nline2\n")
 	errs := make(chan error, 2)
 
-	lf := NewLogFile(1, "")
+	lf := NewLogFile()
 	lf.Read(reader, errs)
 	if lf.Count != 2 {
 		t.Error("Read failed to read the input fully")

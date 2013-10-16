@@ -31,13 +31,12 @@ type TimeSeries struct {
 	Errors   int // the number of values skipped due to errors so far
 }
 
-func NewTimeSeries(window int, label string) *TimeSeries {
+func NewTimeSeries() *TimeSeries {
 	return &TimeSeries{
 		times:   list.New(),
 		Layout:  "time-series",
+		Window:  100,
 		Values:  make(map[string]Countable, 1024),
-		Window:  window,
-		Label:   label,
 		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
 		Min:     Countable(math.Inf(1)),
 		Max:     Countable(math.Inf(-1))}

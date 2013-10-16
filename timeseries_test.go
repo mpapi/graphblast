@@ -8,7 +8,7 @@ import (
 )
 
 func TestTimeSeriesAdd(t *testing.T) {
-	ts := NewTimeSeries(2, "")
+	ts := NewTimeSeries()
 	when := time.Unix(1400000000, 0)
 	ts.Add(when, 1, nil)
 
@@ -24,7 +24,7 @@ func TestTimeSeriesAdd(t *testing.T) {
 }
 
 func TestTimeSeriesAddError(t *testing.T) {
-	ts := NewTimeSeries(2, "")
+	ts := NewTimeSeries()
 	when := time.Unix(1400000000, 0)
 	ts.Add(when, 1, errors.New("fail"))
 
@@ -37,7 +37,7 @@ func TestTimeSeriesAddError(t *testing.T) {
 }
 
 func TestTimeSeriesAddFiltered(t *testing.T) {
-	ts := NewTimeSeries(2, "")
+	ts := NewTimeSeries()
 	ts.Allowed = Range{Countable(0), Countable(100)}
 	when := time.Unix(1400000000, 0)
 	ts.Add(when, 101, nil)
@@ -51,7 +51,8 @@ func TestTimeSeriesAddFiltered(t *testing.T) {
 }
 
 func TestTimeSeriesAddWindowed(t *testing.T) {
-	ts := NewTimeSeries(1, "")
+	ts := NewTimeSeries()
+	ts.Window = 1
 	ts.Add(time.Unix(1400000000, 0), 1, nil)
 	ts.Add(time.Unix(1400000001, 0), 2, nil)
 
@@ -67,7 +68,7 @@ func TestTimeSeriesAddWindowed(t *testing.T) {
 }
 
 func TestTimeSeriesChanged(t *testing.T) {
-	ts := NewTimeSeries(1, "")
+	ts := NewTimeSeries()
 	changed, next := ts.Changed(0)
 	if changed {
 		t.Error("Changed incorrectly reported change")
@@ -87,7 +88,8 @@ func TestTimeSeriesChanged(t *testing.T) {
 }
 
 func TestTimeSeriesRead(t *testing.T) {
-	ts := NewTimeSeries(1, "")
+	ts := NewTimeSeries()
+	ts.Window = 1
 	reader := strings.NewReader("1\n2\n")
 	errs := make(chan error, 2)
 	ts.Read(reader, errs)

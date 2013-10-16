@@ -29,11 +29,10 @@ type ScatterPlot struct {
 	Errors   int // the number of values skipped due to errors so far
 }
 
-func NewScatterPlot(label string) *ScatterPlot {
+func NewScatterPlot() *ScatterPlot {
 	return &ScatterPlot{
 		Layout:  "scatterplot",
 		Values:  make(map[string]Countable, 1024),
-		Label:   label,
 		Allowed: Range{Countable(math.Inf(-1)), Countable(math.Inf(1))},
 		Min:     Countable(math.Inf(1)),
 		Max:     Countable(math.Inf(-1))}

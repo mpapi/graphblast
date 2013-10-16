@@ -31,7 +31,10 @@ func buildGraph(arg string) graphblast.Graph {
 
 	switch arg {
 	case "histogram":
-		graph := graphblast.NewHistogram(*bucket, *label, *wide)
+		graph := graphblast.NewHistogram()
+		graph.Label = *label
+		graph.Wide = *wide
+		graph.Bucket = *bucket
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
@@ -39,7 +42,9 @@ func buildGraph(arg string) graphblast.Graph {
 		graph.Allowed = allowed
 		return graph
 	case "timeseries":
-		graph := graphblast.NewTimeSeries(*window, *label)
+		graph := graphblast.NewTimeSeries()
+		graph.Window = *window
+		graph.Label = *label
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
@@ -47,7 +52,8 @@ func buildGraph(arg string) graphblast.Graph {
 		graph.Allowed = allowed
 		return graph
 	case "scatterplot":
-		graph := graphblast.NewScatterPlot(*label)
+		graph := graphblast.NewScatterPlot()
+		graph.Label = *label
 		graph.Width = *width
 		graph.Height = *height
 		graph.Colors = *colors
@@ -55,7 +61,9 @@ func buildGraph(arg string) graphblast.Graph {
 		graph.Allowed = allowed
 		return graph
 	case "logfile":
-		graph := graphblast.NewLogFile(*window, *label)
+		graph := graphblast.NewLogFile()
+		graph.Window = *window
+		graph.Label = *label
 		graph.Colors = *colors
 		graph.FontSize = *fontSize
 		return graph
