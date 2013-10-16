@@ -2,7 +2,7 @@
 
 all: lint test bin/graphblast
 
-bin/graphblast: *.go bundle/*.go graphblast/*.go assets/*
+bin/graphblast: *.go bind/*.go bundle/*.go graphblast/*.go assets/*
 	go build -o bin/graphblast graphblast/graphblast.go
 	objcopy bin/graphblast \
 		--add-section assets/script.js=assets/script.js \
@@ -11,7 +11,7 @@ bin/graphblast: *.go bundle/*.go graphblast/*.go assets/*
 	mv bin/graphblast.out bin/graphblast
 	strip bin/graphblast
 
-test: *.go bundle/*.go graphblast/*.go
+test: *.go bind/*.go bundle/*.go graphblast/*.go
 	go test github.com/hut8labs/graphblast
 
 coverage:
