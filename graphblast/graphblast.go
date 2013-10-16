@@ -24,6 +24,7 @@ var colors = flag.String("colors", "", "comma-separated: bg, fg, bar color")
 var fontSize = flag.String("font-size", "", "font size (CSS)")
 var window = flag.Int("window", 1000, "data window size")
 
+// TODO Convert this to use bind.GenerateFlags
 func buildGraph(arg string) graphblast.Graph {
 	allowed := graphblast.Range{
 		Min: graphblast.Countable(*min),
@@ -79,15 +80,22 @@ func main() {
 	watchers := make(graphblast.ErrorWatchers)
 	go watchers.Broadcast(readerrors)
 
+	graphs := graphblast.NewGraphs()
+
 	// TODO Make graph-specific flags part of a subcommand/FlagSet
-	graph := buildGraph(flag.Arg(0))
-	go graph.Read(os.Stdin, readerrors)
+	if flag.NArg() > 0 {
+		// Create a nameless graph from stdin.
+		graph := buildGraph(flag.Arg(0))
+		go graph.Read(os.Stdin, readerrors)
+		graphs.Add("", graph)
+	}
 
 	updateFreq := time.Duration(*delay) * time.Second
 
 	http.HandleFunc("/", graphblast.Index())
 	http.HandleFunc("/script.js", graphblast.Script())
-	http.HandleFunc("/data", graphblast.Events(updateFreq, watchers, graph))
+	http.HandleFunc("/data", graphblast.Events(updateFreq, watchers, graphs))
+	http.HandleFunc("/graph/", graphblast.Inputs(graphs, readerrors))
 
 	graphblast.Log("listening on %v", *listen)
 	http.ListenAndServe(*listen, nil)

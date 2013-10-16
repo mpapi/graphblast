@@ -396,6 +396,7 @@
     'logfile': pushLogFile
   };
 
+  var graphs = {};
   var events = new EventSource('/data');
   events.onmessage = function (e) {
     var data = JSON.parse(e.data);
@@ -403,9 +404,18 @@
       // TODO Indicate the error to the user, somehow
       console.error(data);
       return;
+    } else if (data.changed) {
+      if (graphs[data.changed]) {
+        return;
+      }
+      graphs[data.changed] = true;
+      console.log('New graph:', data.changed);
+      events.addEventListener(data.changed, function (e) {
+        var graph = JSON.parse(e.data);
+        console.debug(data.changed, graph);
+        pushFuncs[graph.Layout](graph);
+      }, false);
     }
-    console.debug(data);
-    pushFuncs[data.Layout](data);
   };
 
   // TODO Indicate EOF/disconnect to the user
