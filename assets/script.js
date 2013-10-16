@@ -409,7 +409,12 @@
         return;
       }
       graphs[data.changed] = true;
-      console.log('New graph:', data.changed);
+      if (window.graph !== data.changed) {
+        console.log('Ignoring graph:', data.changed);
+        return;
+      } else {
+        console.log('New graph:', data.changed);
+      }
       events.addEventListener(data.changed, function (e) {
         var graph = JSON.parse(e.data);
         console.debug(data.changed, graph);

@@ -15,12 +15,20 @@ import (
 	"time"
 )
 
+const DEFAULT_GRAPH_NAME = "_"
+
 func Index() http.HandlerFunc {
 	indexfile := bundle.ReadFile("assets/index.html")
 	indexpage := template.Must(template.New("index").Parse(string(indexfile)))
 
+	namePattern := regexp.MustCompile("^/(?P<name>\\w+)")
+
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
-		indexpage.Execute(w, nil)
+		params := ExtractNamed(r.URL.Path, namePattern)
+		if len(params["name"]) == 0 {
+			params["name"] = DEFAULT_GRAPH_NAME
+		}
+		indexpage.Execute(w, params["name"])
 	})
 	// TODO Consider building the JS into the HTML, and removing Script()
 }
@@ -42,6 +50,9 @@ func ExtractNamed(text string, pattern *regexp.Regexp) map[string]string {
 	for index, name := range names {
 		if index == 0 {
 			continue
+		}
+		if index >= len(matches) {
+			break
 		}
 		result[name] = matches[index]
 	}

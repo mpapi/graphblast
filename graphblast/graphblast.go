@@ -84,10 +84,10 @@ func main() {
 
 	// TODO Make graph-specific flags part of a subcommand/FlagSet
 	if flag.NArg() > 0 {
-		// Create a nameless graph from stdin.
+		// Create a graph from stdin with a default name.
 		graph := buildGraph(flag.Arg(0))
 		go graph.Read(os.Stdin, readerrors)
-		graphs.Add("", graph)
+		graphs.Add(graphblast.DEFAULT_GRAPH_NAME, graph)
 	}
 
 	updateFreq := time.Duration(*delay) * time.Second
