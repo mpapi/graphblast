@@ -75,8 +75,8 @@ func (hist *Histogram) Add(val Countable, err error) {
 
 // Read and parse countable values from stdin, add them to a histogram and
 // update stats.
-func (hist *Histogram) Read(reader io.Reader, errors chan error) {
-	doRead(reader, errors, func(line string) {
+func (hist *Histogram) Read(reader io.Reader) error {
+	return doRead(reader, func(line string) {
 		hist.Add(Parse(strings.TrimSpace(line)))
 	})
 }

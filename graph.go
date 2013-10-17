@@ -21,7 +21,7 @@ func (r *Range) MarshalJSON() ([]byte, error) {
 
 type Graph interface {
 	Changed(int) (bool, int)
-	Read(io.Reader, chan error)
+	Read(io.Reader) error
 	// TODO Make it possible to determine and send deltas
 }
 
@@ -103,15 +103,14 @@ func (d Countable) Bucket(size int) string {
 	return strconv.Itoa(int(d) / size * size)
 }
 
-func doRead(input io.Reader, errors chan error, process func(string)) {
+func doRead(input io.Reader, process func(string)) error {
 	Log("starting to read data")
 	reader := bufio.NewReader(input)
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			Log("finished reading data due to %v", err)
-			errors <- err
-			return
+			return err
 		}
 		process(line)
 	}

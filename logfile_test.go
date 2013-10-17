@@ -78,10 +78,9 @@ func TestLogFileChanged(t *testing.T) {
 
 func TestLogFileRead(t *testing.T) {
 	reader := strings.NewReader("line1\nline2\n")
-	errs := make(chan error, 2)
 
 	lf := NewLogFile()
-	lf.Read(reader, errs)
+	lf.Read(reader)
 	if lf.Count != 2 {
 		t.Error("Read failed to read the input fully")
 	}

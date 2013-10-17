@@ -66,8 +66,8 @@ func (sp *ScatterPlot) Add(x Countable, val Countable, err error) {
 	sp.Values[fmt.Sprintf("%v|%v", x, sp.Count)] = val
 }
 
-func (sp *ScatterPlot) Read(reader io.Reader, errs chan error) {
-	doRead(reader, errs, func(line string) {
+func (sp *ScatterPlot) Read(reader io.Reader) error {
+	return doRead(reader, func(line string) {
 		parts := strings.SplitN(strings.TrimSpace(line), " ", 2)
 		if len(parts) != 2 {
 			sp.Add(0, 0, errors.New("invalid line"))

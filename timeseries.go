@@ -77,8 +77,8 @@ func (ts *TimeSeries) Add(when time.Time, val Countable, err error) {
 	}
 }
 
-func (ts *TimeSeries) Read(reader io.Reader, errors chan error) {
-	doRead(reader, errors, func(line string) {
+func (ts *TimeSeries) Read(reader io.Reader) error {
+	return doRead(reader, func(line string) {
 		parsed, err := Parse(strings.TrimSpace(line))
 		ts.Add(time.Now(), parsed, err)
 	})

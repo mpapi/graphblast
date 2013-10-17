@@ -48,9 +48,8 @@ func (lf *LogFile) Add(line string, err error) {
 	}
 }
 
-func (lf *LogFile) Read(reader io.Reader, errs chan error) {
-	doRead(reader, errs, func(line string) {
-		// TODO Capture timestamps for log lines
+func (lf *LogFile) Read(reader io.Reader) error {
+	return doRead(reader, func(line string) {
 		lf.Add(strings.TrimSpace(line), nil)
 	})
 }

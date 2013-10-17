@@ -86,7 +86,12 @@ func main() {
 	if flag.NArg() > 0 {
 		// Create a graph from stdin with a default name.
 		graph := buildGraph(flag.Arg(0))
-		go graph.Read(os.Stdin, readerrors)
+		go func() {
+			err := graph.Read(os.Stdin)
+			if err != nil {
+				readerrors <- err
+			}
+		}()
 		graphs.Add(graphblast.DEFAULT_GRAPH_NAME, graph)
 	}
 

@@ -87,8 +87,7 @@ func TestScatterPlotChanged(t *testing.T) {
 func TestScatterPlotRead(t *testing.T) {
 	sp := NewScatterPlot()
 	reader := strings.NewReader("10 100\n20 200\n")
-	errs := make(chan error, 4)
-	sp.Read(reader, errs)
+	sp.Read(reader)
 
 	if sp.Count != 2 {
 		t.Error("Read failed to read the input fully")
@@ -101,7 +100,7 @@ func TestScatterPlotRead(t *testing.T) {
 	}
 
 	reader = strings.NewReader("30 300\na\n")
-	sp.Read(reader, errs)
+	sp.Read(reader)
 	if sp.Count != 3 {
 		t.Error("Read failed to read the good part of a bad input")
 	}
@@ -113,7 +112,7 @@ func TestScatterPlotRead(t *testing.T) {
 	}
 
 	reader = strings.NewReader("a 100\n40 b\n")
-	sp.Read(reader, errs)
+	sp.Read(reader)
 	if sp.Errors != 3 {
 		t.Error("Read failed to signal an error for bad values")
 	}

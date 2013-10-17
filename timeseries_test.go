@@ -91,8 +91,7 @@ func TestTimeSeriesRead(t *testing.T) {
 	ts := NewTimeSeries()
 	ts.Window = 1
 	reader := strings.NewReader("1\n2\n")
-	errs := make(chan error, 2)
-	ts.Read(reader, errs)
+	ts.Read(reader)
 	if ts.Count != 2 {
 		t.Error("Read failed to read the input fully")
 	}
@@ -109,7 +108,7 @@ func TestTimeSeriesRead(t *testing.T) {
 	}
 
 	reader = strings.NewReader("5\na\n")
-	ts.Read(reader, errs)
+	ts.Read(reader)
 	if ts.Count != 3 {
 		t.Error("Read failed to read the good part of a bad input")
 	}

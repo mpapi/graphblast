@@ -87,8 +87,7 @@ func TestHistogramChanged(t *testing.T) {
 func TestHistogramRead(t *testing.T) {
 	hist := NewHistogram()
 	reader := strings.NewReader("5\n5\n")
-	errs := make(chan error, 2)
-	hist.Read(reader, errs)
+	hist.Read(reader)
 	if hist.Count != 2 {
 		t.Error("Read failed to read the input fully")
 	}
@@ -100,7 +99,7 @@ func TestHistogramRead(t *testing.T) {
 	}
 
 	reader = strings.NewReader("5\na\n")
-	hist.Read(reader, errs)
+	hist.Read(reader)
 	if hist.Count != 3 {
 		t.Error("Read failed to read the good part of a bad input")
 	}

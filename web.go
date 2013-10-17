@@ -99,7 +99,10 @@ func Inputs(graphs *Graphs, readerrors chan error) http.HandlerFunc {
 			http.Error(w, "Invalid graph type or parameters", 400)
 		} else {
 			graphs.Add(name, graph)
-			graph.Read(r.Body, readerrors)
+			err := graph.Read(r.Body)
+			if err != nil {
+				readerrors <- err
+			}
 		}
 	})
 }
