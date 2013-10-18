@@ -66,6 +66,7 @@ func CreateGraph(name string, graph Graph) GraphRequest {
 func CompleteGraph(name string, err error) GraphRequest {
 	return func(graphs *Graphs, subs Subscribers) {
 		if err != nil {
+			graphs.changed[name] = 0
 			body := map[string]string{"name": name, "reason": err.Error()}
 			subs.Send(NewJSONMessage("__completed", body))
 		}
