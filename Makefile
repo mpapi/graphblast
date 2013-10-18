@@ -17,10 +17,10 @@ $(OUTPUT): $(GO_SRC) assets/*
 	strip $@
 
 test: $(GO_SRC)
-	go test $(GO_PKG)
+	go test -timeout=1s $(GO_PKG)
 
 coverage:
-	./bin/gocov test -v $(GO_PKG) > .coverage.json
+	./bin/gocov test -v -timeout=1s $(GO_PKG) > .coverage.json
 	./bin/gocov annotate -ceiling=100 .coverage.json
 
 lint: $(GO_SRC) assets/script.js

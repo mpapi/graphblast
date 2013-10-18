@@ -2,7 +2,6 @@ package graphblast
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/hut8labs/graphblast/bind"
@@ -91,34 +90,23 @@ func ParseGraphURL(url *url.URL, pattern *regexp.Regexp) (string, Graph) {
 // uploads of graph data. When called, the handler creates a new graph based on
 // the URL arguments and reads from the request body until the response is
 // finished.
-func Inputs(graphs *Graphs, readerrors chan error) http.HandlerFunc {
+func Inputs(requests chan<- GraphRequest) http.HandlerFunc {
 	graphPattern := regexp.MustCompile("^/graph/(?P<type>\\w+)/(?P<name>\\w+)")
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
 		name, graph := ParseGraphURL(r.URL, graphPattern)
 		if graph == nil {
 			http.Error(w, "Invalid graph type or parameters", 400)
 		} else {
-			graphs.Add(name, graph)
-			err := graph.Read(r.Body)
-			if err != nil {
-				readerrors <- err
-			}
+			PopulateGraph(name, graph, r.Body, requests)
 		}
 	})
 }
 
 // Events returns a HandlerFunc for responding to requests for updates via an
 // HTML EventSource (a.k.a. SSE, server-sent events). When called, the handler
-// periodically pushes changed graphs to the client as JSON objects.
-func Events(updateFreq time.Duration, watchers ErrorWatchers, graphs *Graphs) http.HandlerFunc {
+// listens for graph data and pushes it to the client as JSON.
+func Events(requests chan<- GraphRequest, publisher Publisher) http.HandlerFunc {
 	return LogRequest(func(w http.ResponseWriter, r *http.Request) {
-		ticker := time.NewTicker(updateFreq)
-		defer ticker.Stop()
-
-		// Register a channel for passing errors to the HTTP client.
-		errors := watchers.Watch(r.RemoteAddr)
-		defer watchers.Unwatch(r.RemoteAddr)
-
 		// Get the necessary parts for being an EventSource, or fail.
 		flusher, cn, err := toEventSource(w)
 		if err != nil {
@@ -126,50 +114,29 @@ func Events(updateFreq time.Duration, watchers ErrorWatchers, graphs *Graphs) ht
 			return
 		}
 
-		for name, graph := range graphs.All() {
-			sendGraph(w, name, graph)
-		}
-		flusher.Flush()
+		messages := publisher.Subscribe(r.RemoteAddr)
+		defer publisher.Unsubscribe(r.RemoteAddr)
 
+		requests <- DumpGraphs(r.RemoteAddr)
 		for {
 			select {
 			case _ = <-cn.CloseNotify():
 				return
 
-			case err = <-errors:
-				sendJSON(w, map[string]error{"error": err})
-				flusher.Flush()
-				return
-
-			case _ = <-ticker.C:
-				for name, graph := range graphs.Changed() {
-					// TODO Only send graph deltas
-					sendGraph(w, name, graph)
+			case msg := <-messages:
+				envelope := msg.Envelope()
+				contents, msgErr := msg.Contents()
+				Log("Sending: %s %s", envelope, string(contents))
+				if msgErr != nil {
+					// TODO Log it
+					continue
 				}
+				io.WriteString(w, fmt.Sprintf("event: %s\n", envelope))
+				io.WriteString(w, fmt.Sprintf("data: %s\n\n", string(contents)))
 				flusher.Flush()
 			}
 		}
 	})
-}
-
-// Writes an object as JSON to a writer. If there are errors serializing, write
-// an error JSON object instead.
-func sendJSON(writer io.Writer, obj interface{}) {
-	msg, err := json.Marshal(obj)
-	if err != nil {
-		// TODO Use an EventSource event here to distinguish data from errors
-		fmt.Fprint(writer, "data: {\"type\": \"JSON error\"}\n\n")
-		return
-	}
-	fmt.Fprintf(writer, "data: %s\n\n", msg)
-}
-
-// Sends a "changed" notification with the name of the graph, then fires an
-// event (from the graph's name) with its contents in JSON.
-func sendGraph(writer io.Writer, name string, graph Graph) {
-	sendJSON(writer, map[string]string{"changed": name})
-	io.WriteString(writer, fmt.Sprintf("event: %s\n", name))
-	sendJSON(writer, graph)
 }
 
 // Sets up a ResponseWriter for use as an EventSource.

@@ -398,30 +398,24 @@
 
   var graphs = {};
   var events = new EventSource('/data');
-  events.onmessage = function (e) {
+  events.addEventListener('__created', function (e) {
     var data = JSON.parse(e.data);
-    if (data.type && data.type === 'error') {
-      // TODO Indicate the error to the user, somehow
-      console.error(data);
+    if (!data.name || graphs[data.name]) {
       return;
-    } else if (data.changed) {
-      if (graphs[data.changed]) {
-        return;
-      }
-      graphs[data.changed] = true;
-      if (window.graph !== data.changed) {
-        console.log('Ignoring graph:', data.changed);
-        return;
-      } else {
-        console.log('New graph:', data.changed);
-      }
-      events.addEventListener(data.changed, function (e) {
-        var graph = JSON.parse(e.data);
-        console.debug(data.changed, graph);
-        pushFuncs[graph.Layout](graph);
-      }, false);
     }
-  };
+    graphs[data.name] = true;
+    if (window.graph !== data.name) {
+      console.log('Ignoring graph:', data.name);
+      return;
+    } else {
+      console.log('New graph:', data.name);
+    }
+    events.addEventListener(data.name, function (e) {
+      var graph = JSON.parse(e.data);
+      console.debug(data.name, graph);
+      pushFuncs[graph.Layout](graph);
+    }, false);
+  }, false);
 
   // TODO Indicate EOF/disconnect to the user
   // TODO Auto-resize graphs when window size changes

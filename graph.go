@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"io"
 	"strconv"
+	"time"
 )
 
 type Range struct {
@@ -43,42 +44,86 @@ func NewGraphFromType(graphType string) Graph {
 	}
 }
 
-// Graphs stores a set of graphs by name, and tracks their changes.
 type Graphs struct {
-	graphs      map[string]Graph
-	lastChanged map[string]int
+	named   map[string]Graph
+	changed map[string]int
 }
 
-// NewGraphs returns an empty graph collection.
-func NewGraphs() *Graphs {
-	return &Graphs{
-		graphs:      make(map[string]Graph, 1),
-		lastChanged: make(map[string]int, 1)}
-}
+// GraphRequest sequences modifications to an internal collection of Graphs.
+type GraphRequest func(*Graphs, Subscribers)
 
-// Add stores a graph by name.
-func (graphs *Graphs) Add(name string, graph Graph) {
-	graphs.graphs[name] = graph
-}
-
-// All returns all graphs (by name) regardless of whether they've changed.
-func (g *Graphs) All() map[string]Graph {
-	return g.graphs
-}
-
-// Changed returns the graphs (by name) that have changed since the last call
-// to the Changed method.
-func (g *Graphs) Changed() (result map[string]Graph) {
-	result = make(map[string]Graph)
-	for name, graph := range g.graphs {
-		changed, lastChanged := graph.Changed(g.lastChanged[name])
-		if !changed {
-			continue
-		}
-		g.lastChanged[name] = lastChanged
-		result[name] = graph
+// CreateGraph adds a new Graph to a collection.
+func CreateGraph(name string, graph Graph) GraphRequest {
+	return func(graphs *Graphs, subs Subscribers) {
+		graphs.named[name] = graph
+		body := map[string]string{"name": name}
+		subs.Send(NewJSONMessage("__created", body))
 	}
-	return
+}
+
+// CompleteGraph notifies subscribers that a Graph is no longer being updated,
+// possibly due to an error.
+func CompleteGraph(name string, err error) GraphRequest {
+	return func(graphs *Graphs, subs Subscribers) {
+		if err != nil {
+			body := map[string]string{"name": name, "reason": err.Error()}
+			subs.Send(NewJSONMessage("__completed", body))
+		}
+	}
+}
+
+// DumpGraphs sends all Graphs in a collection to a single subscriber.
+func DumpGraphs(subscriber string) GraphRequest {
+	return func(graphs *Graphs, subs Subscribers) {
+		for name, graph := range graphs.named {
+			CreateGraph(name, graph)(graphs, subs)
+			subs.Send(NewJSONMessageTo([]string{subscriber}, name, graph))
+		}
+	}
+}
+
+// NotifyChanges sends all Graphs that have changed (since the last call to
+// NotifyChanges) to all subscribers.
+func NotifyChanges() GraphRequest {
+	return func(graphs *Graphs, subs Subscribers) {
+		for name, graph := range graphs.named {
+			changed, indicator := graph.Changed(graphs.changed[name])
+			graphs.changed[name] = indicator
+			if !changed {
+				continue
+			}
+			subs.Send(NewJSONMessage(name, graph))
+		}
+	}
+}
+
+// ProcessGraphRequests maintains an internal collection of Graphs, listens for
+// GraphRequests, and applies them to the collection.
+func ProcessGraphRequests(requests <-chan GraphRequest, subs Subscribers) {
+	graphs := &Graphs{make(map[string]Graph), make(map[string]int)}
+	for requestFunc := range requests {
+		requestFunc(graphs, subs)
+	}
+}
+
+// PeriodicallyNotifyChanges sends a NotifyChanges request on a channel every n
+// seconds.
+func PeriodicallyNotifyChanges(requests chan<- GraphRequest, seconds int) {
+	updateFreq := time.Duration(seconds) * time.Second
+	for _ = range time.Tick(updateFreq) {
+		requests <- NotifyChanges()
+	}
+}
+
+// PopulateGraph is a convenience function for updating a Graph from an input
+// stream, sending creation and completion requests at the appropriate times.
+func PopulateGraph(name string, graph Graph, input io.Reader, requests chan<- GraphRequest) {
+	requests <- CreateGraph(name, graph)
+	var err error
+	defer func() {
+		requests <- CompleteGraph(name, err)
+	}()
+	err = graph.Read(input)
 }
 
 // The type of the items to parse from stdin and count in the histogram.

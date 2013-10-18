@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"time"
 )
 
 // Command-line flags.
@@ -76,31 +75,29 @@ func main() {
 	flag.Parse()
 	graphblast.SetVerboseLogging(*verbose)
 
-	readerrors := make(chan error)
-	watchers := make(graphblast.ErrorWatchers)
-	go watchers.Broadcast(readerrors)
+	// Broadcast takes messages and dispatches them to all listeners that have
+	// registered themselves with it.
+	broadcaster := graphblast.NewBroadcaster()
+	go broadcaster.DispatchForever()
 
-	graphs := graphblast.NewGraphs()
+	requests := make(chan graphblast.GraphRequest)
+	go graphblast.ProcessGraphRequests(requests, broadcaster)
+	go graphblast.PeriodicallyNotifyChanges(requests, *delay)
 
 	// TODO Make graph-specific flags part of a subcommand/FlagSet
 	if flag.NArg() > 0 {
-		// Create a graph from stdin with a default name.
-		graph := buildGraph(flag.Arg(0))
+		// Create a graph from stdin.
 		go func() {
-			err := graph.Read(os.Stdin)
-			if err != nil {
-				readerrors <- err
-			}
+			name := graphblast.DEFAULT_GRAPH_NAME
+			graph := buildGraph(flag.Arg(0))
+			graphblast.PopulateGraph(name, graph, os.Stdin, requests)
 		}()
-		graphs.Add(graphblast.DEFAULT_GRAPH_NAME, graph)
 	}
-
-	updateFreq := time.Duration(*delay) * time.Second
 
 	http.HandleFunc("/", graphblast.Index())
 	http.HandleFunc("/script.js", graphblast.Script())
-	http.HandleFunc("/data", graphblast.Events(updateFreq, watchers, graphs))
-	http.HandleFunc("/graph/", graphblast.Inputs(graphs, readerrors))
+	http.HandleFunc("/data", graphblast.Events(requests, broadcaster))
+	http.HandleFunc("/graph/", graphblast.Inputs(requests))
 
 	graphblast.Log("listening on %v", *listen)
 	http.ListenAndServe(*listen, nil)
