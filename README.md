@@ -16,7 +16,7 @@ If you're modifying the frontend, you'll also want Node.js for linting the
 frontend JavaScript.
 
 ```shell
-go get http://github.com/hut8labs/graphblast
+go get github.com/hut8labs/graphblast
 cd $GOPATH/src/github.com/hut8labs/graphblast
 make bin/graphblast
 ```
